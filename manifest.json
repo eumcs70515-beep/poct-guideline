@@ -1,0 +1,29 @@
+{
+  "name": "현장검사 전자 지침서",
+  "short_name": "POCT 지침서",
+  "description": "이대서울병원 진단검사의학과 현장검사(POCT) 전자 지침서 시스템",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#003D2B",
+  "theme_color": "#005C3C",
+  "orientation": "any",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "medical",
+    "productivity"
+  ]
+}
