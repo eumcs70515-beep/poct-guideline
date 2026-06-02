@@ -1948,6 +1948,9 @@ function showMainTab(id, btn){
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tnav').forEach(b=>b.classList.remove('active'));
+  // 모바일 목차 화면 숨기기
+  const _mtoc = document.getElementById('mobile-toc-screen');
+  if(_mtoc) _mtoc.style.display = 'none';
   document.getElementById(id).classList.add('active');
   if(btn) btn.classList.add('active');
   // 모바일 하단 네비 active 상태 업데이트
@@ -2137,6 +2140,58 @@ function _doDeleteRoom(roomId){
   if(currentRoomId===roomId) currentRoomId = S.rooms[0].id;
   delete S.signPageConfig[roomId];
   saveState(); renderAll(); toast('방이 삭제되었습니다.','warn');
+}
+
+// ═══════════════════════════════════════════════════════
+// MOBILE TOC SCREEN
+// ═══════════════════════════════════════════════════════
+function renderMobileTOC(){
+  const el = document.getElementById('mtoc-content');
+  if(!el) return;
+  if(!S.rooms || S.rooms.length === 0){
+    el.innerHTML = '<div style="text-align:center;color:#888;padding:40px 20px;font-size:14px;">등록된 지침서가 없습니다.</div>';
+    return;
+  }
+  el.innerHTML = S.rooms.map(room => {
+    const pages = room.pages || [];
+    const pageItems = pages.map((p, i) => `
+      <div class="mtoc-page-item" onclick="selectMobilePage('${room.id}','${p.id}')">
+        <span class="pg-icon">${i+1}</span>
+        <span>${p.title}</span>
+      </div>`).join('');
+    return `
+      <div class="mtoc-room-card">
+        <div class="mtoc-room-title" onclick="this.classList.toggle('open')">
+          <span>📂 ${room.name}</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="mtoc-page-list">${pageItems}</div>
+      </div>`;
+  }).join('');
+}
+
+function showMobileTOC(){
+  const tocScreen = document.getElementById('mobile-toc-screen');
+  if(tocScreen) tocScreen.style.display = 'block';
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  const tocBtn = document.getElementById('mobile-toc-btn');
+  if(tocBtn) tocBtn.classList.add('active');
+}
+
+function selectMobilePage(roomId, pageId){
+  // 방 전환
+  S.currentRoom = roomId;
+  renderAll();
+  // 뷰어 탭으로 이동
+  const viewerTab = document.querySelector('.tnav[onclick*="tab-viewer"]') || document.querySelector('.tnav');
+  showMainTab('tab-viewer', viewerTab);
+  // 해당 페이지로 스크롤
+  setTimeout(() => scrollToPage(pageId), 100);
+}
+
+function hideMobileTOC(){
+  const tocScreen = document.getElementById('mobile-toc-screen');
+  if(tocScreen) tocScreen.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════
