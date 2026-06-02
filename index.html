@@ -384,7 +384,7 @@ textarea{resize:vertical}
 .doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%}
 .a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:visible;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
-.a4-page p{margin:0 0 9px;line-height:1.75;font-size:10.5pt;}
+.a4-page p{margin:0 0 9px;line-height:1.75;}
 /* 제목 계층 */
 .a4-page h1{font-size:16pt!important;font-weight:700;color:#00583F;margin:0 0 14px;line-height:1.4;}
 .a4-page h2{font-size:13pt!important;font-weight:700;color:#00583F;margin:20px 0 9px;padding-bottom:5px;border-bottom:2px solid #9ABFB0;line-height:1.4;}
@@ -414,7 +414,7 @@ textarea{resize:vertical}
 .a4-page .page-header-bar .ph-title{font-size:13pt;font-weight:700;color:#00583F;}
 .a4-page .page-header-bar .ph-meta{font-size:8pt;color:#888}
 .a4-page-content{width:100%;}
-.a4-page font{font-size:inherit;}
+.a4-page font{ font-family:inherit; }
 .a4-page .doc-title-block{text-align:center;margin-bottom:20px}
 .a4-page .doc-title-block h1{font-size:20pt;border:none}
 .a4-page[contenteditable=true]{outline:2px solid var(--navy2);outline-offset:2px}
@@ -546,11 +546,14 @@ canvas{display:block;cursor:crosshair;touch-action:none}
   /* ── 열람·서명 탭 인쇄 ── */
   body[data-print="viewer"] #tab-viewer { display:block!important; }
   body[data-print="viewer"] #tab-viewer .doc-viewer { background:#fff!important; padding:0!important; }
-  body[data-print="viewer"] .a4-page-wrap { page-break-after:always; break-after:page; }
+  body[data-print="viewer"] #doc-pages-container { display:block!important; }
+  body[data-print="viewer"] #sign-section { display:none!important; }
+  body[data-print="viewer"] .a4-page-wrap { page-break-after:always; break-after:page; display:block!important; }
   body[data-print="viewer"] .a4-page {
     box-shadow:none!important; margin:0!important;
     width:210mm!important; padding:15mm 18mm!important;
     min-height:auto!important; box-sizing:border-box!important;
+    display:block!important;
   }
   body[data-print="viewer"] .page-sign-section { display:block!important; }
   body[data-print="viewer"] .page-sign-table img { height:28px!important; }
@@ -1142,9 +1145,37 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
     <div id="doc-pages-container"></div>
     <div style="width:210mm;margin:0 auto 20px" id="sign-section">
       <div class="sign-area">
-        <h3>✏️ 검토 확인 및 서명</h3>
+        <h3>✍️ 선택 서명하기</h3>
         <div id="sign-alert"></div>
-        <div class="alert alert-info" style="font-size:13px">각 지침서 페이지의 서명란에서 직접 서명하실 수 있습니다. 관리자가 서명란을 지정한 페이지 하단에 <strong>[✍️ 서명하기]</strong> 버튼이 나타납니다.</div>
+        <div class="alert alert-info" style="font-size:13px">서명할 페이지를 선택하고 서명을 완료하세요. 작성자·파트장·전문의 역할별로 개별 서명이 가능합니다.</div>
+
+        <!-- 작성자/파트장/전문의 서명 현황 칸 -->
+        <div style="background:#fff;border:1px solid #9ABFB0;border-radius:8px;overflow:hidden;margin-bottom:12px">
+          <div style="background:#00583F;color:#fff;font-weight:700;padding:8px 14px;font-size:11pt">📋 현장검사 운영지침서 서명란</div>
+          <table style="width:100%;border-collapse:collapse;font-size:10pt">
+            <thead>
+              <tr>
+                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:33%">작성자 서명</th>
+                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:33%">파트장 서명</th>
+                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:34%">전문의 서명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-writer">
+                  <span style="color:#aaa;font-size:12px">서명 없음</span>
+                </td>
+                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-partleader">
+                  <span style="color:#aaa;font-size:12px">서명 없음</span>
+                </td>
+                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-doctor">
+                  <span style="color:#aaa;font-size:12px">서명 없음</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div class="chk-row">
           <input type="checkbox" id="chk-read" onchange="toggleSign()">
           <label for="chk-read">본 지침서의 전체 내용을 열람하고 숙지하였습니다. 아래 정보를 입력하고 서명할 페이지를 선택하세요.</label>
@@ -1623,6 +1654,13 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <button class="btn btn-xs" onclick="applyImgAlign('left')">◀왼쪽</button>
       <button class="btn btn-xs" onclick="applyImgAlign('center')">≡가운데</button>
       <button class="btn btn-xs" onclick="applyImgAlign('right')">▶오른쪽</button>
+      <span style="width:1px;height:18px;background:#ccc"></span>
+      <span style="font-size:11px;color:#666">배치</span>
+      <button class="btn btn-xs" onclick="applyImgFloat('inline')" title="텍스트 줄 안에 배치">📄줄 안</button>
+      <button class="btn btn-xs" onclick="applyImgFloat('left')" title="이미지 왼쪽, 텍스트 오른쪽으로 흐름">◧왼쪽감싸기</button>
+      <button class="btn btn-xs" onclick="applyImgFloat('right')" title="이미지 오른쪽, 텍스트 왼쪽으로 흐름">◨오른쪽감싸기</button>
+      <button class="btn btn-xs" onclick="applyImgFloat('block-center')" title="가운데 독립 배치">▣가운데독립</button>
+      <button class="btn btn-xs" onclick="applyImgFloat('full')" title="전체 폭으로 확장">⬛전체폭</button>
       <span style="width:1px;height:18px;background:#ccc"></span>
       <button class="btn btn-xs btn-danger" onclick="deleteSelectedImg()">🗑️삭제</button>
     </div>
@@ -3649,6 +3687,63 @@ function applyImgAlign(align){
   else if(align === 'right'){ _selectedImg.style.marginLeft = 'auto'; _selectedImg.style.marginRight = '0'; }
   else { _selectedImg.style.marginLeft = 'auto'; _selectedImg.style.marginRight = 'auto'; }
 }
+
+// 이미지 배치 방식 변경
+function applyImgFloat(type){
+  if(!_selectedImg){ toast('이미지를 먼저 클릭해서 선택하세요.','warn'); return; }
+  const img = _selectedImg;
+
+  // 기존 float/display 초기화
+  img.style.float = '';
+  img.style.display = '';
+  img.style.marginLeft = '';
+  img.style.marginRight = '';
+  img.style.marginTop = '';
+  img.style.marginBottom = '';
+  img.style.maxWidth = '';
+  img.style.width = img.style.width || 'auto';
+
+  switch(type){
+    case 'inline':
+      // 텍스트 줄 안에 배치
+      img.style.display = 'inline';
+      img.style.verticalAlign = 'middle';
+      break;
+    case 'left':
+      // 왼쪽 배치, 텍스트 오른쪽으로 흐름
+      img.style.float = 'left';
+      img.style.marginRight = '12px';
+      img.style.marginBottom = '8px';
+      img.style.display = 'block';
+      break;
+    case 'right':
+      // 오른쪽 배치, 텍스트 왼쪽으로 흐름
+      img.style.float = 'right';
+      img.style.marginLeft = '12px';
+      img.style.marginBottom = '8px';
+      img.style.display = 'block';
+      break;
+    case 'block-center':
+      // 가운데 독립 배치
+      img.style.display = 'block';
+      img.style.marginLeft = 'auto';
+      img.style.marginRight = 'auto';
+      img.style.marginTop = '8px';
+      img.style.marginBottom = '8px';
+      img.style.float = 'none';
+      break;
+    case 'full':
+      // 전체 폭
+      img.style.display = 'block';
+      img.style.width = '100%';
+      img.style.maxWidth = '100%';
+      img.style.marginLeft = '0';
+      img.style.marginRight = '0';
+      img.style.float = 'none';
+      break;
+  }
+  toast('배치 방식이 변경됐습니다.','success');
+}
 function deleteSelectedImg(){
   if(!_selectedImg) return;
   customConfirm('이미지를 삭제하시겠습니까?', ()=>{
@@ -3808,8 +3903,32 @@ function submitSign(){
 
 function renderSignHistory(){
   const room = currentRoom();
-  // 지침서별로 해당 방의 서명만
   const sigs = room ? S.signatures.filter(s=>!s.room||s.room===room.name) : S.signatures;
+
+  // 작성자/파트장/전문의 서명칸 업데이트
+  const roleMap = {
+    '작성자': 'writer', '임상병리사': 'writer',
+    '파트장': 'partleader', '팀장': 'partleader',
+    '전문의': 'doctor', '과장': 'doctor'
+  };
+  // 초기화
+  ['writer','partleader','doctor'].forEach(role=>{
+    const cell = document.getElementById('sign-cell-'+role);
+    if(cell) cell.innerHTML = '<span style="color:#aaa;font-size:12px">서명 없음</span>';
+  });
+  // 최신 서명으로 채우기
+  [...sigs].reverse().forEach(s=>{
+    const roleKey = roleMap[s.role];
+    if(!roleKey) return;
+    const cell = document.getElementById('sign-cell-'+roleKey);
+    if(!cell || cell.querySelector('img')) return; // 이미 채워진 경우 스킵
+    cell.innerHTML = `
+      <div style="font-size:10px;color:#555;margin-bottom:4px">${s.name} (${s.role})</div>
+      ${s.sigImg ? `<img src="${s.sigImg}" style="height:36px;max-width:100%">` : '<span style="font-size:11px">'+s.name+'</span>'}
+      <div style="font-size:10px;color:#888;margin-top:2px">${s.date}</div>
+    `;
+  });
+
   const tbody = document.getElementById('hist-tbody');
   if(!sigs.length){tbody.innerHTML='<tr><td colspan="8" class="empty">서명 이력 없음</td></tr>';return;}
   tbody.innerHTML = sigs.map((s,i)=>{
