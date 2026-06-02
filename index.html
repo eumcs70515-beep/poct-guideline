@@ -533,6 +533,8 @@ canvas{display:block;cursor:crosshair;touch-action:none}
   .sign-area, #sign-section,
   .toast-container, .tnav, .room-tabs,
   .viewer-header, .page-sign-section .btn,
+  #mobile-toc, #mobile-nav, #global-search-bar,
+  #mobile-toc-screen, #sign-section,
   .btn { display:none!important }
 
   /* ── 공통: 레이아웃 리셋 ── */
@@ -579,6 +581,7 @@ canvas{display:block;cursor:crosshair;touch-action:none}
   .topbar-nav{ display:none; }
   .topbar-info{ display:none; }
   #save-indicator{ display:none; }
+  #print-btn-topbar{ display:none!important; }
   #topbar-save-btn{
     padding:4px 8px!important; font-size:10px!important;
     gap:3px!important; border-radius:5px!important;
@@ -1093,7 +1096,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <button onclick="clearPcSearch()" id="pc-search-clear" style="display:none;background:transparent;border:none;color:#1a4a33;padding:0 8px;cursor:pointer;font-size:14px">✕</button>
     </div>
     <span id="topbar-username" style="font-size:12px;color:#1a3a2a;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,88,63,.3);background:rgba(255,255,255,.5);"></span>
-    <button onclick="printViewer()" title="지침서 인쇄" style="background:rgba(255,255,255,.5);border:1px solid rgba(0,88,63,.3);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;color:#1a3a2a;font-family:inherit;font-weight:600">🖨️</button>
+    <button id="print-btn-topbar" onclick="printViewer()" title="지침서 인쇄" style="background:rgba(255,255,255,.5);border:1px solid rgba(0,88,63,.3);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;color:#1a3a2a;font-family:inherit;font-weight:600">🖨️</button>
     <input type="file" id="quick-import-file" accept=".json" style="display:none" onchange="quickImport(this)">
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
       <div class="topbar-info" id="topbar-doc-info">
@@ -1144,79 +1147,8 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
   <div class="doc-viewer" id="doc-viewer">
     <div id="doc-pages-container"></div>
     <div style="width:210mm;margin:0 auto 20px" id="sign-section">
-      <div class="sign-area">
-        <h3>✍️ 선택 서명하기</h3>
-        <div id="sign-alert"></div>
-        <div class="alert alert-info" style="font-size:13px">서명할 페이지를 선택하고 서명을 완료하세요. 작성자·파트장·전문의 역할별로 개별 서명이 가능합니다.</div>
-
-        <!-- 작성자/파트장/전문의 서명 현황 칸 -->
-        <div style="background:#fff;border:1px solid #9ABFB0;border-radius:8px;overflow:hidden;margin-bottom:12px">
-          <div style="background:#00583F;color:#fff;font-weight:700;padding:8px 14px;font-size:11pt">📋 현장검사 운영지침서 서명란</div>
-          <table style="width:100%;border-collapse:collapse;font-size:10pt">
-            <thead>
-              <tr>
-                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:33%">작성자 서명</th>
-                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:33%">파트장 서명</th>
-                <th style="background:#E6F4EF;padding:8px 10px;border:1px solid #9ABFB0;text-align:center;width:34%">전문의 서명</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-writer">
-                  <span style="color:#aaa;font-size:12px">서명 없음</span>
-                </td>
-                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-partleader">
-                  <span style="color:#aaa;font-size:12px">서명 없음</span>
-                </td>
-                <td style="padding:12px 10px;border:1px solid #B8D4C4;text-align:center;height:60px;vertical-align:middle" id="sign-cell-doctor">
-                  <span style="color:#aaa;font-size:12px">서명 없음</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="chk-row">
-          <input type="checkbox" id="chk-read" onchange="toggleSign()">
-          <label for="chk-read">본 지침서의 전체 내용을 열람하고 숙지하였습니다. 아래 정보를 입력하고 서명할 페이지를 선택하세요.</label>
-        </div>
-        <div id="sign-form" style="display:none;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:8px">
-          <div class="form-grid">
-            <div class="fg"><label>성명 <span class="req">*</span></label><input type="text" id="s-name" placeholder="이름 입력"></div>
-            <div class="fg"><label>직위/직책 <span class="req">*</span></label>
-              <select id="s-role">
-                <option value="">선택하세요</option>
-                <option>임상병리사</option><option>파트장</option><option>팀장</option>
-                <option>전문의</option><option>과장</option><option>간호사</option><option>기타</option>
-              </select>
-            </div>
-            <div class="fg"><label>서명일</label><input type="date" id="s-date"></div>
-            <div class="fg"><label>소속 부서</label><input type="text" id="s-dept" value="진단검사의학과" placeholder="예: 진단검사의학과"></div>
-          </div>
-          <div class="fg"><label>서명할 페이지 선택</label>
-            <div id="sign-page-selector" class="sign-page-selector"></div>
-          </div>
-          <div class="fg"><label>🖊️ 손서명 (마우스 또는 터치로 서명)</label>
-            <div class="canvas-sign-wrap"><canvas id="sign-canvas" width="560" height="100"></canvas></div>
-            <div class="flex"><button class="btn btn-xs" onclick="clearCanvas('sign-canvas')">🗑️ 서명 지우기</button></div>
-          </div>
-          <div class="fg"><label>비고</label><input type="text" id="s-remark" value="지침서 검토" placeholder="예: 지침서 검토"></div>
-          <div class="flex-end">
-            <button class="btn" onclick="toggleSign();document.getElementById('chk-read').checked=false">취소</button>
-            <button class="btn btn-primary" onclick="submitSign()">✅ 서명 완료</button>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px;border-radius:var(--radius2)">
-        <div class="card-title flex-between"><span>📋 재검토 서명 이력</span>
-          
-        </div>
-        <div class="tbl-wrap">
-          <table class="tbl">
-            <thead><tr><th>재검토일</th><th>성명</th><th>직위</th><th>소속</th><th>서명페이지</th><th>서명</th><th>비고</th><th>관리</th></tr></thead>
-            <tbody id="hist-tbody"><tr><td colspan="8" class="empty">서명 이력 없음</td></tr></tbody>
-          </table>
-        </div>
+      <div id="sign-table-container">
+        <!-- JS로 렌더링 -->
       </div>
     </div>
   </div>
@@ -1263,11 +1195,10 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
             <div class="fg"><label>내용 직접 입력 (워드 스타일 편집기)</label>
               <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden">
                 <div style="background:var(--navy3);padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border2)">
-                  <select onchange="editorCmd('new-content-div','fontSize',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px">
-                    <option value="">글자 크기</option>
-                    <option value="1">8pt</option><option value="2">10pt</option><option value="3">12pt</option>
-                    <option value="4">14pt</option><option value="5">18pt</option><option value="6">24pt</option>
-                  </select>
+                  <span style="font-size:11px;color:#666;align-self:center">크기</span>
+                  <input type="number" id="fs-new" min="6" max="72" value="11" style="width:44px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" onchange="applyFontSize('new-content-div',this.value)">
+                  <button class="btn btn-xs" style="padding:2px 5px" onclick="stepFontSize('new-content-div','fs-new',1)">▲</button>
+                  <button class="btn btn-xs" style="padding:2px 5px" onclick="stepFontSize('new-content-div','fs-new',-1)">▼</button>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','bold')"><b>B</b></button>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','italic')"><i>I</i></button>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','underline')"><u>U</u></button>
@@ -1277,43 +1208,48 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyRight')">▶</button>
                   <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
                   <button class="btn btn-xs" onclick="editorInsertTable('new-content-div')">⊞ 표삽입</button>
-                  <button class="btn btn-xs" onclick="tableAddRow()" title="커서 위치 아래에 행 추가">➕행</button>
-                  <button class="btn btn-xs" onclick="tableAddCol()" title="커서 위치 오른쪽에 열 추가">➕열</button>
-                  <button class="btn btn-xs" onclick="tableDelRow()" title="현재 행 삭제">➖행</button>
-                  <button class="btn btn-xs" onclick="tableDelCol()" title="현재 열 삭제">➖열</button>
-                  <button class="btn btn-xs" onclick="tableMergeCells()" title="선택한 셀 병합">⊟병합</button>
-                  <button class="btn btn-xs" onclick="tableUnmergeCells()" title="병합 해제">⊞해제</button>
-                  <button class="btn btn-xs" onclick="editorResizeTable()" title="표 너비를 %로 조절">📐너비%</button>
+                  <span id="tbl-btns-new" style="display:none;gap:3px;align-items:center">
+                    <button class="btn btn-xs" onclick="tableAddRow()">➕행</button>
+                    <button class="btn btn-xs" onclick="tableAddCol()">➕열</button>
+                    <button class="btn btn-xs" onclick="tableDelRow()">➖행</button>
+                    <button class="btn btn-xs" onclick="tableDelCol()">➖열</button>
+                    <button class="btn btn-xs" onclick="tableMergeCells()">⊟병합</button>
+                    <button class="btn btn-xs" onclick="tableUnmergeCells()">⊞해제</button>
+                    <button class="btn btn-xs" onclick="editorResizeTable()">📐너비%</button>
+                  </span>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertUnorderedList')">• 목록</button>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertOrderedList')">① 목록</button>
                   <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
                   <div style="position:relative;display:inline-flex;align-items:center">
-                    <select onchange="editorForeColor('new-content-div',this);this.value=''" style="padding:2px 28px 2px 8px;border-radius:4px;border:1px solid var(--border);font-size:12px;appearance:none;-webkit-appearance:none;background:#fff;cursor:pointer;min-width:72px">
+                    <select onchange="editorForeColor('new-content-div',this);this.value=''" style="padding:2px 28px 2px 8px;border-radius:4px;border:1px solid var(--border);font-size:12px;appearance:none;-webkit-appearance:none;background:#fff;cursor:pointer;min-width:58px">
                       <option value="">글자색</option>
-                      <option value="#000000">검정</option><option value="#0f2d5c">남색</option>
-                      <option value="#1a4080">파랑</option><option value="#8b1a1a">빨강</option>
-                      <option value="#1b5e20">초록</option><option value="#8a6800">금색</option>
-                      <option value="#555555">회색</option><option value="#e67e22">주황</option>
+                      <option value="#000000">검정</option>
+                      <option value="#00583F">이화그린</option>
+                      <option value="#ffffff" style="background:#aaa">흰색</option>
+                      <option value="#0f2d5c">남색</option>
+                      <option value="#1a4080">파랑</option>
+                      <option value="#8b1a1a">빨강</option>
+                      <option value="#8a6800">금색</option>
+                      <option value="#555555">회색</option>
                     </select>
-                    <div style="position:absolute;right:6px;width:12px;height:12px;border-radius:50%;background:#000;pointer-events:none;border:1px solid #ccc"></div>
+                    <div id="fc-dot-new" style="position:absolute;right:6px;width:12px;height:12px;border-radius:50%;background:#000;pointer-events:none;border:1px solid #ccc"></div>
                   </div>
                   <button class="btn btn-xs" onclick="editorCmd('new-content-div','removeFormat')">✕서식</button>
                   <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                  <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-input').click()" title="이미지 파일 선택">🖼️ 이미지</button>
+                  <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-input').click()">🖼️ 이미지</button>
                   <input type="file" id="new-img-input" accept="image/*" style="display:none" onchange="editorInsertImageFile(this,'new-content-div')">
                   <input type="file" id="new-img-multi-input" accept="image/*" multiple style="display:none" onchange="editorInsertImagesRow(this,'new-content-div')">
-                  <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-multi-input').click()" title="이미지 여러 장을 가로로 나란히 배치">🖼️🖼️ 나란히</button>
-                  <button class="btn btn-xs btn-teal" onclick="editorInsertImageTable('new-content-div')" title="이미지+설명 표 삽입">📋 이미지표</button>
-                  <button class="btn btn-xs" onclick="editorPasteClipboard('new-content-div')" title="클립보드 이미지 (Ctrl+V도 가능)">📋 붙여넣기</button>
+                  <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-multi-input').click()">🖼️🖼️ 나란히</button>
+                  <button class="btn btn-xs btn-teal" onclick="editorInsertImageTable('new-content-div')">📋 이미지표</button>
+                  <button class="btn btn-xs" onclick="editorPasteClipboard('new-content-div')">📋 붙여넣기</button>
                   <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                  <span style="font-size:11px;color:#666;align-self:center">강조:</span>
-                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','gray')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333">■ 회색</button>
-                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','red')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828">■ 주의</button>
-                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','yellow')" style="background:#fffde7;border:1px solid #f9a825;color:#795548">■ 중요</button>
-                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','green')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F">■ 정보</button>
-                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','blue')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0">■ 안내</button>
-                  <button class="btn btn-xs" onclick="insertSidebarBox('new-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F" title="왼쪽 세로선 강조 박스">▌세로선</button>
-                  <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666">✕강조</button>
+                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','gray')" style="width:22px;height:22px;background:#f5f5f5;border:2px solid #9e9e9e;border-radius:50%;padding:0" title="회색 강조"></button>
+                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','red')" style="width:22px;height:22px;background:#fff0f0;border:2px solid #e53935;border-radius:50%;padding:0" title="주의"></button>
+                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','yellow')" style="width:22px;height:22px;background:#fffde7;border:2px solid #f9a825;border-radius:50%;padding:0" title="중요"></button>
+                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','green')" style="width:22px;height:22px;background:#f0faf6;border:2px solid #00583F;border-radius:50%;padding:0" title="정보"></button>
+                  <button class="btn btn-xs" onclick="insertHighlightTo('new-content-div','blue')" style="width:22px;height:22px;background:#e3f2fd;border:2px solid #1565c0;border-radius:50%;padding:0" title="안내"></button>
+                  <button class="btn btn-xs" onclick="insertUnderlineTitle('new-content-div')" style="background:#f0faf5;border:2px solid #00583F;color:#00583F;border-radius:4px;font-size:11px" title="밑줄제목">▬</button>
+                  <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666;font-size:11px" title="강조제거">✕</button>                  <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666">✕강조</button>
                 </div>
                 <div id="new-content-div" contenteditable="true"
                   style="min-height:180px;padding:12px;font-size:11pt;font-family:'Malgun Gothic',sans-serif;line-height:1.6;outline:none;overflow-y:auto;max-height:300px"
@@ -1488,72 +1424,16 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
         </div>
       </div>
 
-      <!-- 서명란 페이지 설정 -->
+      <!-- 서명 관리 -->
       <div class="card">
-        <div class="card-title">📋 검토확인·서명란 관리</div>
-        <div class="tabs" id="admin-sign-tabs" style="margin-bottom:14px">
-          <button class="tab active" onclick="switchAdminSignTab('select',this)">📄 페이지 지정</button>
-          <button class="tab" onclick="switchAdminSignTab('build',this)">✏️ 서명란 직접 생성</button>
+        <div class="card-title">✍️ 서명 관리</div>
+        <div class="alert alert-info" style="font-size:12px;margin-bottom:12px">
+          공식 서명(작성자/파트장/전문의/과장)은 <strong>지침서 열람·서명</strong> 탭 하단 서명란에서 직접 입력하세요.<br>
+          관리자 로그인 시 서명 입력 칸이 활성화됩니다.
         </div>
-
-        <!-- 탭1: 페이지 지정 -->
-        <div id="admin-sign-tab-select" class="tab-panel active">
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">서명란을 표시할 페이지를 지침서별로 지정합니다. 선택된 페이지 하단에 [✍️ 서명하기] 버튼과 누적 서명 현황이 표시됩니다.</p>
-          <div id="sign-page-settings"></div>
-          <div class="flex-end"><button class="btn btn-primary" onclick="saveSignPageSettings()">💾 설정 저장</button></div>
-        </div>
-
-        <!-- 탭2: 서명란 직접 생성 -->
-        <div id="admin-sign-tab-build" class="tab-panel">
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">지침서 내에 서명란 표 페이지를 새로 만들어 삽입합니다. 생성 후 서명란으로 자동 지정됩니다.</p>
-          <div class="form-grid">
-            <div class="fg"><label>지침서 선택</label>
-              <select id="sb-room-sel" onchange="sbUpdatePages()">
-                <option value="">지침서 선택...</option>
-              </select>
-            </div>
-            <div class="fg"><label>삽입 위치</label>
-              <select id="sb-pos-sel" onchange="sbUpdatePosUI()">
-                <option value="end">마지막에 추가</option>
-                <option value="after">특정 페이지 뒤에</option>
-              </select>
-            </div>
-          </div>
-          <div id="sb-after-wrap" class="fg" style="display:none">
-            <label>다음 페이지 뒤에 삽입</label>
-            <select id="sb-after-page"></select>
-          </div>
-          <div class="fg"><label>서명란 제목</label>
-            <input type="text" id="sb-title" placeholder="예: Glucose 검사지침서 서명란">
-          </div>
-          <div style="font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 6px">서명 항목 구성</div>
-          <div id="sb-fields-wrap">
-            <!-- 동적으로 추가되는 서명 필드 -->
-          </div>
-          <div class="flex" style="margin-bottom:12px">
-            <button class="btn btn-xs btn-primary" onclick="sbAddField('작성자')">+ 작성자</button>
-            <button class="btn btn-xs btn-primary" onclick="sbAddField('파트장')">+ 파트장</button>
-            <button class="btn btn-xs btn-primary" onclick="sbAddField('전문의')">+ 전문의</button>
-            <button class="btn btn-xs btn-primary" onclick="sbAddField('과장')">+ 과장</button>
-            <button class="btn btn-xs" onclick="sbAddField('')">+ 직접입력</button>
-          </div>
-          <div class="sign-builder-wrap">
-            <div class="sign-builder-header">
-              <span>👁️ 서명란 미리보기</span>
-              <button class="btn btn-xs" onclick="sbRefreshPreview()">🔄 새로고침</button>
-            </div>
-            <div class="sign-builder-body">
-              <div class="sign-preview-wrap" id="sb-preview"></div>
-            </div>
-          </div>
-          <div class="fg" style="margin-top:12px">
-            <label>검사 시작 날짜 <small style="font-weight:400;color:var(--muted)">(옵션)</small></label>
-            <input type="text" id="sb-start-date" placeholder="예: 2019.02.07">
-          </div>
-          <div class="flex-end">
-            <button class="btn btn-primary" onclick="sbInsertSignPage()">📄 서명란 페이지 삽입</button>
-          </div>
-        </div>
+        <button class="btn btn-primary" onclick="showMainTab('tab-viewer');setTimeout(()=>document.getElementById('sign-section').scrollIntoView({behavior:'smooth'}),300)">
+          📋 서명란으로 이동
+        </button>
       </div>
 
       <!-- 전체 서명 현황 -->
@@ -1616,14 +1496,6 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
   </div>
 </div>
 
-<!-- 서명 모달 -->
-<div class="modal-overlay" id="hist-sign-modal">
-  <div class="modal">
-    <h2 id="hist-sign-modal-title">📝 수정이력 서명</h2>
-    <div id="hist-sign-modal-body"></div>
-    <div class="flex-end"><button class="btn" onclick="closeModal('hist-sign-modal')">닫기</button></div>
-  </div>
-</div>
 
 <!-- 편집 모달 -->
 <div class="modal-overlay" id="edit-modal" style="padding:10px;">
@@ -1666,11 +1538,10 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
     </div>
     <!-- 툴바 -->
     <div style="background:var(--navy3);padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border2);flex-shrink:0">
-      <select onchange="editorCmd('edit-content-div','fontSize',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px">
-        <option value="">글자 크기</option>
-        <option value="1">8pt</option><option value="2">10pt</option><option value="3">12pt</option>
-        <option value="4">14pt</option><option value="5">18pt</option><option value="6">24pt</option>
-      </select>
+      <span style="font-size:11px;color:#666;align-self:center">크기</span>
+      <input type="number" id="fs-edit" min="6" max="72" value="11" style="width:44px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" onchange="applyFontSize('edit-content-div',this.value)">
+      <button class="btn btn-xs" style="padding:2px 5px" onclick="stepFontSize('edit-content-div','fs-edit',1)">▲</button>
+      <button class="btn btn-xs" style="padding:2px 5px" onclick="stepFontSize('edit-content-div','fs-edit',-1)">▼</button>
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','bold')"><b>B</b></button>
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','italic')"><i>I</i></button>
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','underline')"><u>U</u></button>
@@ -1680,52 +1551,50 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyRight')">▶</button>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
       <button class="btn btn-xs" onclick="editorInsertTable('edit-content-div')">⊞ 표삽입</button>
-      <button class="btn btn-xs" onclick="tableAddRow()" title="커서 위치 아래에 행 추가">➕행</button>
-      <button class="btn btn-xs" onclick="tableAddCol()" title="커서 위치 오른쪽에 열 추가">➕열</button>
-      <button class="btn btn-xs" onclick="tableDelRow()" title="현재 행 삭제">➖행</button>
-      <button class="btn btn-xs" onclick="tableDelCol()" title="현재 열 삭제">➖열</button>
-      <button class="btn btn-xs" onclick="tableMergeCells()" title="선택한 셀 병합">⊟병합</button>
-      <button class="btn btn-xs" onclick="tableUnmergeCells()" title="병합 해제">⊞해제</button>
-      <button class="btn btn-xs" onclick="editorResizeTable()" title="표 너비를 %로 조절">📐너비%</button>
-      <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-      <span style="font-size:11px;color:#666;align-self:center">표색상:</span>
-      <button class="btn btn-xs" onclick="applyTableColor('#1a3a5c','#dbe8f8','#b0cce8')" style="background:#1a3a5c;color:#fff;font-size:11px">▤ 파랑</button>
-      <button class="btn btn-xs" onclick="applyTableColor('#37474f','#eceff1','#cfd8dc')" style="background:#37474f;color:#fff;font-size:11px">▤ 회색</button>
-      <button class="btn btn-xs" onclick="applyTableColor('#1b5e20','#e8f5e9','#c8e6c9')" style="background:#1b5e20;color:#fff;font-size:11px">▤ 초록</button>
-      <button class="btn btn-xs" onclick="applyTableColor('#e65100','#fff3e0','#ffe0b2')" style="background:#e65100;color:#fff;font-size:11px">▤ 주황</button>
-      <button class="btn btn-xs" onclick="applyTableColor('#6a1b9a','#f3e5f5','#e1bee7')" style="background:#6a1b9a;color:#fff;font-size:11px">▤ 보라</button>
-      <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
+      <span id="tbl-btns-edit" style="display:none;gap:3px;align-items:center">
+        <button class="btn btn-xs" onclick="tableAddRow()">➕행</button>
+        <button class="btn btn-xs" onclick="tableAddCol()">➕열</button>
+        <button class="btn btn-xs" onclick="tableDelRow()">➖행</button>
+        <button class="btn btn-xs" onclick="tableDelCol()">➖열</button>
+        <button class="btn btn-xs" onclick="tableMergeCells()">⊟병합</button>
+        <button class="btn btn-xs" onclick="tableUnmergeCells()">⊞해제</button>
+        <button class="btn btn-xs" onclick="editorResizeTable()">📐너비%</button>
+      </span>
+      <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertUnorderedList')">• 목록</button>
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertOrderedList')">① 목록</button>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
       <div style="position:relative;display:inline-flex;align-items:center">
-        <select onchange="editorForeColor('edit-content-div',this);this.value=''" style="padding:2px 28px 2px 8px;border-radius:4px;border:1px solid var(--border);font-size:12px;appearance:none;-webkit-appearance:none;background:#fff;cursor:pointer;min-width:72px">
+        <select onchange="editorForeColor('edit-content-div',this);this.value=''" style="padding:2px 28px 2px 8px;border-radius:4px;border:1px solid var(--border);font-size:12px;appearance:none;-webkit-appearance:none;background:#fff;cursor:pointer;min-width:58px">
           <option value="">글자색</option>
-          <option value="#000000">검정</option><option value="#0f2d5c">남색</option>
-          <option value="#1a4080">파랑</option><option value="#8b1a1a">빨강</option>
-          <option value="#1b5e20">초록</option><option value="#8a6800">금색</option>
-          <option value="#555555">회색</option><option value="#e67e22">주황</option>
+          <option value="#000000">검정</option>
+          <option value="#00583F">이화그린</option>
+          <option value="#ffffff" style="background:#aaa">흰색</option>
+          <option value="#0f2d5c">남색</option>
+          <option value="#1a4080">파랑</option>
+          <option value="#8b1a1a">빨강</option>
+          <option value="#8a6800">금색</option>
+          <option value="#555555">회색</option>
         </select>
-        <div style="position:absolute;right:6px;width:12px;height:12px;border-radius:50%;background:#000;pointer-events:none;border:1px solid #ccc"></div>
+        <div id="fc-dot-edit" style="position:absolute;right:6px;width:12px;height:12px;border-radius:50%;background:#000;pointer-events:none;border:1px solid #ccc"></div>
       </div>
       <button class="btn btn-xs" onclick="editorCmd('edit-content-div','removeFormat')">✕서식</button>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-      <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-input').click()" title="이미지 파일 선택">🖼️ 이미지</button>
+      <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-input').click()">🖼️ 이미지</button>
       <input type="file" id="edit-img-input" accept="image/*" style="display:none" onchange="editorInsertImageFile(this,'edit-content-div')">
       <input type="file" id="edit-img-multi-input" accept="image/*" multiple style="display:none" onchange="editorInsertImagesRow(this,'edit-content-div')">
-      <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-multi-input').click()" title="이미지 여러 장을 가로로 나란히 배치">🖼️🖼️ 나란히</button>
-      <button class="btn btn-xs btn-teal" onclick="editorInsertImageTable('edit-content-div')" title="이미지+설명 표 삽입">📋 이미지표</button>
-      <button class="btn btn-xs" onclick="editorPasteClipboard('edit-content-div')" title="클립보드 이미지 (Ctrl+V도 가능)">📋 붙여넣기</button>
+      <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-multi-input').click()">🖼️🖼️ 나란히</button>
+      <button class="btn btn-xs btn-teal" onclick="editorInsertImageTable('edit-content-div')">📋 이미지표</button>
+      <button class="btn btn-xs" onclick="editorPasteClipboard('edit-content-div')">📋 붙여넣기</button>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
       <button class="btn btn-xs" onclick="toggleFindReplace()" title="찾기/바꾸기">🔍 찾기/바꾸기</button>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-      <span style="font-size:11px;color:#666;align-self:center">강조:</span>
-      <button class="btn btn-xs" onclick="insertHighlight('gray')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333" title="회색 박스 - 참고/설명">■ 회색</button>
-      <button class="btn btn-xs" onclick="insertHighlight('red')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828" title="빨간 박스 - 주의/경고">■ 주의</button>
-      <button class="btn btn-xs" onclick="insertHighlight('yellow')" style="background:#fffde7;border:1px solid #f9a825;color:#795548" title="노란 박스 - 중요 안내">■ 중요</button>
-      <button class="btn btn-xs" onclick="insertHighlight('green')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F" title="초록 박스 - 정보">■ 정보</button>
-      <button class="btn btn-xs" onclick="insertHighlight('blue')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0" title="파란 박스 - 안내">■ 안내</button>
-      <button class="btn btn-xs" onclick="insertSidebarBox('edit-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F" title="왼쪽 세로선 강조 박스">▌세로선</button>
-      <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666" title="강조 블록 제거">✕강조</button>
+      <button class="btn btn-xs" onclick="insertHighlight('gray')" style="width:22px;height:22px;background:#f5f5f5;border:2px solid #9e9e9e;border-radius:50%;padding:0" title="회색 강조"></button>
+      <button class="btn btn-xs" onclick="insertHighlight('red')" style="width:22px;height:22px;background:#fff0f0;border:2px solid #e53935;border-radius:50%;padding:0" title="주의"></button>
+      <button class="btn btn-xs" onclick="insertHighlight('yellow')" style="width:22px;height:22px;background:#fffde7;border:2px solid #f9a825;border-radius:50%;padding:0" title="중요"></button>
+      <button class="btn btn-xs" onclick="insertHighlight('green')" style="width:22px;height:22px;background:#f0faf6;border:2px solid #00583F;border-radius:50%;padding:0" title="정보"></button>
+      <button class="btn btn-xs" onclick="insertHighlight('blue')" style="width:22px;height:22px;background:#e3f2fd;border:2px solid #1565c0;border-radius:50%;padding:0" title="안내"></button>
+      <button class="btn btn-xs" onclick="insertUnderlineTitle('edit-content-div')" style="background:#f0faf5;border:2px solid #00583F;color:#00583F;border-radius:4px;font-size:11px" title="밑줄제목">▬</button>
+      <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666;font-size:11px" title="강조제거">✕</button>
     </div>
     <!-- 찾기/바꾸기 바 -->
     <div id="find-replace-bar" style="display:none;background:#fff;padding:6px 12px;border-bottom:1px solid var(--border);display:none;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
@@ -1751,37 +1620,6 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
   </div>
 </div>
 
-<!-- 페이지 서명 모달 -->
-<div class="modal-overlay" id="pagesign-modal">
-  <div class="modal" style="width:540px">
-    <h2 id="pagesign-modal-title">✍️ 서명</h2>
-    <input type="hidden" id="pagesign-page-id">
-    <input type="hidden" id="embed-sign-idx">
-    <div class="form-grid">
-      <div class="fg"><label>성명 <span class="req">*</span></label><input type="text" id="ps-name" placeholder="이름 입력"></div>
-      <div class="fg"><label>직위/직책 <span class="req">*</span></label>
-        <select id="ps-role">
-          <option value="">선택하세요</option>
-          <option>임상병리사</option><option>파트장</option><option>팀장</option>
-          <option>전문의</option><option>과장</option><option>간호사</option><option>기타</option>
-        </select>
-      </div>
-      <div class="fg"><label>소속부서</label><input type="text" id="ps-dept" value="진단검사의학과"></div>
-      <div class="fg"><label>서명일</label><input type="date" id="ps-date"></div>
-    </div>
-    <div class="fg"><label>비고</label><input type="text" id="ps-remark" value="지침서 검토"></div>
-    <div class="fg"><label>손서명 <span style="font-size:11px;color:var(--muted)">(마우스 또는 터치로 서명하세요)</span></label>
-      <div class="canvas-sign-wrap">
-        <canvas id="ps-canvas" width="460" height="80"></canvas>
-      </div>
-      <button class="btn btn-xs btn-sm" onclick="clearCanvas('ps-canvas')" style="margin-top:4px">🗑️ 서명 지우기</button>
-    </div>
-    <div class="flex-end">
-      <button class="btn" onclick="closeModal('pagesign-modal')">취소</button>
-      <button class="btn btn-success" onclick="submitPageSign()">✅ 서명 완료</button>
-    </div>
-  </div>
-</div>
 
 <!-- 문서정보 편집 모달 -->
 <div class="modal-overlay" id="docinfo-modal">
@@ -2057,302 +1895,30 @@ function skipAutoLoad(){
 }
 
 function updateUIForRole(){
-  // 편집관리 탭 버튼 관리자만 표시
   const editBtn = document.getElementById('tnav-edit');
   if(editBtn) editBtn.style.display = isAdminLoggedIn ? '' : 'none';
-  // 관리자 탭 버튼 관리자만 표시
   const adminBtn = document.getElementById('tnav-admin');
   if(adminBtn) adminBtn.style.display = isAdminLoggedIn ? '' : 'none';
-  // 저장하기/불러오기 버튼 모든 사용자 표시
   const saveBtn = document.getElementById('topbar-save-btn');
   if(saveBtn) saveBtn.style.display = 'flex';
   const loadBtn = document.getElementById('topbar-load-btn');
   if(loadBtn) loadBtn.style.display = 'flex';
-  // 사용자 이름 표시
   const userEl = document.getElementById('topbar-username');
   if(userEl) userEl.textContent = currentUser + (isAdminLoggedIn ? ' 👑' : '');
-  // 모바일 하단 네비 관리자 버튼
   const mEditBtn  = document.getElementById('mobile-edit-btn');
   const mAdminBtn = document.getElementById('mobile-admin-btn');
   if(mEditBtn)  mEditBtn.style.display  = isAdminLoggedIn ? 'flex' : 'none';
   if(mAdminBtn) mAdminBtn.style.display = isAdminLoggedIn ? 'flex' : 'none';
+  // 공식 서명 입력 버튼 - 관리자만
+  const osBtn = document.getElementById('official-sign-admin-btn');
+  if(osBtn) osBtn.style.display = isAdminLoggedIn ? '' : 'none';
 }
 
 
 
 // ═══════════════════════════════════════════════════════
-// 강조 블록 삽입/제거
+// 공식 서명 (작성자/파트장/전문의) - 관리자 전용
 // ═══════════════════════════════════════════════════════
-function insertHighlight(type){
-  const div = document.getElementById('edit-content-div');
-  if(!div) return;
-  const sel = window.getSelection();
-  let selectedText = '';
-  if(sel && !sel.isCollapsed) selectedText = sel.toString();
-
-  const cls = 'hl-' + type;
-  const labels = {
-    gray:'참고',red:'⚠️ 주의',yellow:'📌 중요',green:'ℹ️ 정보',blue:'📢 안내'
-  };
-  const placeholder = selectedText || (labels[type] + ' 내용을 입력하세요.');
-  const html = `<div class="${cls}" contenteditable="true">${placeholder}</div><p><br></p>`;
-
-  // 선택된 텍스트가 있으면 감싸기, 없으면 커서 위치에 삽입
-  if(sel && !sel.isCollapsed){
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    const wrapper = document.createElement('div');
-    wrapper.className = cls;
-    wrapper.textContent = selectedText;
-    range.insertNode(wrapper);
-    // 빈 p 추가
-    const p = document.createElement('p');
-    p.innerHTML = '<br>';
-    wrapper.after(p);
-  } else {
-    document.execCommand('insertHTML', false, html);
-  }
-  toast(labels[type] + ' 블록 삽입됨', 'success');
-}
-
-function removeHighlight(){
-  const sel = window.getSelection();
-  if(!sel || !sel.anchorNode) return;
-  let node = sel.anchorNode;
-  // 강조 블록 찾기
-  while(node && node.nodeType !== 1) node = node.parentNode;
-  while(node && !['hl-gray','hl-red','hl-yellow','hl-green','hl-blue'].some(c=>node.classList && node.classList.contains(c))){
-    node = node.parentNode;
-  }
-  if(!node || node === document.body){
-    toast('강조 블록 안에 커서를 놓으세요.','warn');
-    return;
-  }
-  // 블록 내용을 꺼내서 교체
-  const frag = document.createDocumentFragment();
-  while(node.firstChild) frag.appendChild(node.firstChild);
-  node.parentNode.replaceChild(frag, node);
-  toast('강조 블록 제거됨','success');
-}
-
-// ── 세로선 강조 박스 삽입 ──────────────────────────────
-function insertSidebarBox(divId){
-  const targetId = divId || 'edit-content-div';
-  const div = document.getElementById(targetId);
-  if(!div) return;
-  div.focus();
-  const html = `<div style="margin:8px 0;padding:10px 14px;background:#f0faf5;border-left:4px solid #00583F;border-radius:0 6px 6px 0;line-height:1.75;font-size:10.5pt;">내용을 입력하세요</div><p></p>`;
-  document.execCommand('insertHTML', false, html);
-}
-
-// ═══════════════════════════════════════════════════════
-// 전역 검색 기능
-// ═══════════════════════════════════════════════════════
-let _searchMatches = [];
-let _searchIdx = 0;
-
-function globalSearch(query){
-  const clearBtn = document.getElementById('global-search-clear');
-  const countEl = document.getElementById('global-search-count');
-  // 이전 하이라이트 제거
-  document.querySelectorAll('.gs-highlight').forEach(el=>{
-    const parent = el.parentNode;
-    parent.replaceChild(document.createTextNode(el.textContent), el);
-    parent.normalize();
-  });
-  _searchMatches = [];
-  _searchIdx = 0;
-  if(!query || query.length < 2){
-    countEl.textContent = '';
-    if(clearBtn) clearBtn.style.display = 'none';
-    return;
-  }
-  if(clearBtn) clearBtn.style.display = '';
-  // 열람 탭 내 텍스트 노드에 하이라이트 적용
-  const viewer = document.getElementById('tab-viewer');
-  if(!viewer){ countEl.textContent = ''; return; }
-  highlightText(viewer, query);
-  _searchMatches = Array.from(document.querySelectorAll('.gs-highlight'));
-  if(_searchMatches.length === 0){
-    countEl.textContent = '검색 결과 없음';
-    const pcCount = document.getElementById('pc-search-count');
-    if(pcCount) pcCount.textContent = '없음';
-    return;
-  }
-  countEl.textContent = '1 / ' + _searchMatches.length + '건';
-  const pcCount = document.getElementById('pc-search-count');
-  if(pcCount) pcCount.textContent = '1/' + _searchMatches.length;
-  _searchIdx = 0;
-  scrollToMatch(0);
-}
-
-function highlightText(node, query){
-  if(node.nodeType === 3){ // TEXT_NODE
-    const idx = node.textContent.toLowerCase().indexOf(query.toLowerCase());
-    if(idx < 0) return;
-    const before = document.createTextNode(node.textContent.slice(0, idx));
-    const mark = document.createElement('mark');
-    mark.className = 'gs-highlight';
-    mark.style.cssText = 'background:#FFE066;color:#000;border-radius:2px;padding:0 1px';
-    mark.textContent = node.textContent.slice(idx, idx + query.length);
-    const after = document.createTextNode(node.textContent.slice(idx + query.length));
-    const parent = node.parentNode;
-    parent.insertBefore(before, node);
-    parent.insertBefore(mark, node);
-    parent.insertBefore(after, node);
-    parent.removeChild(node);
-    // after에 또 있을 수 있으니 재귀
-    highlightText(after, query);
-  } else if(node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'INPUT' && node.nodeName !== 'TEXTAREA'){
-    Array.from(node.childNodes).forEach(child => highlightText(child, query));
-  }
-}
-
-function scrollToMatch(idx){
-  if(!_searchMatches.length) return;
-  _searchMatches.forEach(el => el.style.background = '#FFE066');
-  const el = _searchMatches[idx];
-  el.style.background = '#FF8C00';
-  el.scrollIntoView({ behavior:'smooth', block:'center' });
-  const countEl = document.getElementById('global-search-count');
-  if(countEl) countEl.textContent = (idx+1) + ' / ' + _searchMatches.length + '건';
-  const pcCount = document.getElementById('pc-search-count');
-  if(pcCount) pcCount.textContent = (idx+1) + '/' + _searchMatches.length;
-}
-
-function clearGlobalSearch(){
-  const input = document.getElementById('global-search-input');
-  if(input){ input.value = ''; globalSearch(''); }
-  const pcInput = document.getElementById('pc-search-input');
-  if(pcInput) pcInput.value = '';
-  const pcClear = document.getElementById('pc-search-clear');
-  if(pcClear) pcClear.style.display = 'none';
-  const pcCount = document.getElementById('pc-search-count');
-  if(pcCount) pcCount.textContent = '';
-}
-
-function clearPcSearch(){
-  clearGlobalSearch();
-}
-
-function searchNext(){
-  if(_searchMatches.length === 0){
-    const v = document.getElementById('global-search-input').value;
-    if(v.length >= 2) globalSearch(v);
-    return;
-  }
-  _searchIdx = (_searchIdx + 1) % _searchMatches.length;
-  scrollToMatch(_searchIdx);
-}
-
-function searchPrev(){
-  if(!_searchMatches.length) return;
-  _searchIdx = (_searchIdx - 1 + _searchMatches.length) % _searchMatches.length;
-  scrollToMatch(_searchIdx);
-}
-
-
-// ═══════════════════════════════════════════════════════
-// 모바일 목차 화면
-// ═══════════════════════════════════════════════════════
-function renderMobileTOC(){
-  const container = document.getElementById('mtoc-content');
-  if(!container) return;
-  container.innerHTML = '';
-  S.rooms.forEach((room, ri) => {
-    const card = document.createElement('div');
-    card.className = 'mtoc-room-card';
-    // 방 제목 (클릭 시 접기/펼치기)
-    const titleEl = document.createElement('div');
-    titleEl.className = 'mtoc-room-title' + (ri === 0 ? ' open' : '');
-    const icons = ['📋','🔬','📊','🛠️','📁'];
-    titleEl.innerHTML = `<span>${icons[ri % icons.length]}</span><span>${room.name}</span><span class="arrow">▶</span>`;
-    titleEl.onclick = function(){
-      this.classList.toggle('open');
-    };
-    // 페이지 목록
-    const listEl = document.createElement('div');
-    listEl.className = 'mtoc-page-list';
-    room.pages.forEach((page, pi) => {
-      const hasSign = S.signPageConfig && S.signPageConfig[room.id] &&
-                      S.signPageConfig[room.id].includes(page.id);
-      const item = document.createElement('div');
-      item.className = 'mtoc-page-item';
-      item.innerHTML = `<span class="pg-icon">${pi + 1}</span><span style="flex:1">${page.title}</span>${hasSign ? '<span class="pg-sign-badge">✍️서명</span>' : ''}`;
-      item.onclick = function(){
-        // 지침서로 이동
-        currentRoomId = room.id;
-        showMobilePage(page.id);
-      };
-      listEl.appendChild(item);
-    });
-    card.appendChild(titleEl);
-    card.appendChild(listEl);
-    container.appendChild(card);
-  });
-}
-
-function showMobileTOC(){
-  const toc = document.getElementById('mobile-toc-screen');
-  if(toc){ toc.style.display = 'block'; renderMobileTOC(); }
-  // 하단 네비 active
-  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
-  const tocBtn = document.getElementById('mobile-toc-btn');
-  if(tocBtn) tocBtn.classList.add('active');
-}
-
-function hideMobileTOC(){
-  const toc = document.getElementById('mobile-toc-screen');
-  if(toc) toc.style.display = 'none';
-}
-
-function showMobilePage(pageId){
-  hideMobileTOC();
-  // tab-viewer 활성화
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-viewer').classList.add('active');
-  renderRoomTabs();
-  renderViewerPages();
-  // 해당 페이지로 스크롤 (올바른 ID: a4page_)
-  setTimeout(()=>{
-    const el = document.getElementById('a4page_' + pageId);
-    if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
-  }, 300);
-  // 하단 네비 active
-  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
-  const viewerBtn = document.querySelector('[data-tab="tab-viewer"]');
-  if(viewerBtn) viewerBtn.classList.add('active');
-}
-
-
-// ── 검색바 접기/펼치기 ──
-let _searchBarOpen = true;
-function toggleSearchBar(){
-  _searchBarOpen = !_searchBarOpen;
-  const inner = document.getElementById('search-bar-inner');
-  const tab = document.getElementById('search-toggle-tab');
-  const layout = document.querySelector('.layout');
-  if(_searchBarOpen){
-    inner.style.display = 'flex';
-    tab.textContent = '▲ 검색 접기';
-    // 레이아웃 padding 복원
-    if(window.innerWidth <= 768){
-      if(layout) layout.style.paddingTop = '88px';
-    } else {
-      if(layout) layout.style.marginTop = '98px';
-    }
-  } else {
-    inner.style.display = 'none';
-    tab.textContent = '▼ 검색 열기';
-    // 레이아웃 padding 줄임 (탭 높이만큼 ~22px)
-    if(window.innerWidth <= 768){
-      if(layout) layout.style.paddingTop = '66px';
-    } else {
-      if(layout) layout.style.marginTop = '76px';
-    }
-  }
-}
-
 function renderAll(){
   renderRoomNav();
   renderRoomTabs();
@@ -2361,15 +1927,13 @@ function renderAll(){
   renderTOC();
   renderRoomList();
   renderPageList();
-  renderSignHistory();
   renderHistory();
-  renderSignPageSelector();
   updateSidebarProgress();
   renderDocInfo();
+  renderSignSection_wrapper();
   if(isAdminLoggedIn){
     renderAdminStats();
     renderAdminHistory();
-    setTimeout(()=>{ renderSignPageSettings(); }, 50);
   }
 }
 
@@ -2397,13 +1961,15 @@ function showMainTab(id, btn){
     if(sysCrd) sysCrd.style.display = 'block';
     renderAdminStats();
     renderAdminHistory();
-    setTimeout(()=>{ renderSignPageSettings(); }, 50);
+  }
+  // 열람 탭 진입 시 서명 섹션 렌더링
+  if(id === 'tab-viewer'){
+    setTimeout(()=> renderSignSection(), 100);
   }
   // 수정이력 탭 진입 시 초기화
   if(id === 'tab-history'){
     renderAutoHistory();
     renderHistory();
-    // 패널 초기상태 설정
     const pa = document.getElementById('history-panel-auto');
     const po = document.getElementById('history-panel-official');
     if(pa) pa.style.display = '';
@@ -3230,6 +2796,8 @@ function openEditModal(pageId, subIdx){
     _editOriginalContent = document.getElementById('edit-content-div').innerHTML||'';
     _editOriginalTitle = document.getElementById('edit-title').value||'';
     initEditModalResize(); bindEditImgClick();
+    initTableClickDetect('edit-content-div','tbl-btns-edit');
+    initTableClickDetect('new-content-div','tbl-btns-new');
   }, 150);
 }
 
@@ -3290,39 +2858,27 @@ function doInsertTable(){
   const cols = parseInt(document.getElementById('tbl-cols').value)||3;
   if(rows<1||cols<1){ toast('행·열 수는 1 이상이어야 합니다.','warn'); return; }
 
-  // 이화그린 교대 색상
-  const ODD_BG  = '#ffffff';          // 홀수 행 (흰색)
-  const EVEN_BG = '#f0faf5';          // 짝수 행 (연한 민트)
-  const HDR_BG  = '#00583F';          // 헤더 (진한 이화그린)
-  const HDR_CLR = '#ffffff';          // 헤더 글씨 (흰색)
-  const BORDER  = '1px solid #9ABFB0';
-
+  // B스타일 고정: 투명 초록 헤더 + 행 구분선만
   let html = `<table style="width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0;">`;
   for(let r=0; r<rows; r++){
     html += '<tr>';
     const isHeader = r === 0;
-    const bg = isHeader ? HDR_BG : (r % 2 === 1 ? ODD_BG : EVEN_BG);
-    const color = isHeader ? HDR_CLR : '#1a1a1a';
-    const fw = isHeader ? '700' : '400';
+    const bg = !isHeader && r%2===0 ? '#f0faf5' : '#fff';
     const tag = isHeader ? 'th' : 'td';
     for(let c=0; c<cols; c++){
-      const text = isHeader ? `헤더${c+1}` : '내용';
-      html += `<${tag} style="background:${bg};color:${color};font-weight:${fw};padding:8px 10px;border:${BORDER};vertical-align:top;line-height:1.6;">${text}</${tag}>`;
+      if(isHeader){
+        html += `<th style="background:rgba(0,88,63,0.12);color:#00583F;font-weight:600;padding:9px 12px;border-bottom:2px solid #9ABFB0;border-top:1px solid #e8e8e8;border-left:none;border-right:none;text-align:left;line-height:1.6;">${c===0?'항목'+(c+1):'내용'+(c+1)}</th>`;
+      } else {
+        html += `<td style="padding:8px 12px;border-bottom:1px solid #eeeeee;border-left:none;border-right:none;background:${bg};line-height:1.6;vertical-align:middle;">내용</td>`;
+      }
     }
     html += '</tr>';
   }
   html += '</table>';
 
   closeModal('insert-table-modal');
-  // divId 순서대로 fallback
   const divId = _insertTableTargetDiv || 'edit-content-div';
-  let div = document.getElementById(divId);
-  // 못 찾으면 현재 보이는 편집창 자동 탐색
-  if(!div || div.offsetParent === null){
-    div = document.getElementById('edit-content-div') ||
-          document.getElementById('new-content-div');
-  }
-  if(!div){ toast('편집창을 찾을 수 없습니다. 편집 모달에서 다시 시도해주세요.','warn'); return; }
+  const div = document.getElementById(divId); if(!div) return;
   div.focus();
   document.execCommand('insertHTML', false, html);
 }
@@ -3424,13 +2980,16 @@ async function compressAndUploadImage(dataUrl, divId){
       }
       ctx.drawImage(img, 0, 0, w, h);
 
-      // 업로드 중 표시 - 편집창 위에 오버레이로 표시
+      // 업로드 중 표시
       const loadingId = 'img-uploading-'+Date.now();
-      const loadingEl = document.createElement('div');
-      loadingEl.id = loadingId;
-      loadingEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
-      loadingEl.textContent = '☁️ 이미지 업로드 중...';
-      document.body.appendChild(loadingEl);
+      if(divId){
+        const div = document.getElementById(divId);
+        if(div){
+          div.focus();
+          document.execCommand('insertHTML', false,
+            `<span id="${loadingId}" style="background:#e8f5e9;padding:3px 10px;border-radius:4px;font-size:12px;color:#1b5e20">☁️ 이미지 업로드 중...</span>`);
+        }
+      }
 
       // PNG는 PNG로, 나머지는 JPEG로
       const mimeType = hasTransparency ? 'image/png' : 'image/jpeg';
@@ -3438,9 +2997,8 @@ async function compressAndUploadImage(dataUrl, divId){
       const ext      = hasTransparency ? 'png' : 'jpg';
 
       canvas.toBlob(async (blob)=>{
-        // 로딩 표시 제거
-        const el = document.getElementById(loadingId);
-        if(el) el.remove();
+        const loadingEl = document.getElementById(loadingId);
+        if(loadingEl) loadingEl.remove();
 
         let url = null;
         if(window.fbUploadBlob){
@@ -3461,9 +3019,43 @@ async function compressAndUploadImage(dataUrl, divId){
   });
 }
 
-// 기존 compressEditorImage 호환성 유지
-function compressEditorImage(dataUrl, callback){
-  compressAndUploadImage(dataUrl, null).then(url => callback(url));
+// ── 글자크기 화살표 조절 ────────────────────────────────
+function applyFontSize(divId, val){
+  const div = document.getElementById(divId); if(!div) return;
+  div.focus();
+  document.execCommand('fontSize', false, '7');
+  div.querySelectorAll('font[size="7"]').forEach(el=>{
+    el.removeAttribute('size');
+    el.style.fontSize = val + 'pt';
+  });
+}
+function stepFontSize(divId, inputId, delta){
+  const input = document.getElementById(inputId); if(!input) return;
+  let v = parseInt(input.value)||11;
+  v = Math.min(72, Math.max(6, v + delta));
+  input.value = v;
+  applyFontSize(divId, v);
+}
+
+// ── 표 클릭 시 행/열 버튼 표시 ─────────────────────────
+function initTableClickDetect(divId, tblBtnsId){
+  const div = document.getElementById(divId); if(!div) return;
+  div.addEventListener('click', ()=>{
+    const sel = window.getSelection();
+    let node = sel && sel.anchorNode;
+    while(node && node.nodeName !== 'TABLE' && node !== div) node = node.parentNode;
+    const inTable = node && node.nodeName === 'TABLE';
+    const btns = document.getElementById(tblBtnsId);
+    if(btns) btns.style.display = inTable ? 'inline-flex' : 'none';
+  });
+  div.addEventListener('keyup', ()=>{
+    const sel = window.getSelection();
+    let node = sel && sel.anchorNode;
+    while(node && node.nodeName !== 'TABLE' && node !== div) node = node.parentNode;
+    const inTable = node && node.nodeName === 'TABLE';
+    const btns = document.getElementById(tblBtnsId);
+    if(btns) btns.style.display = inTable ? 'inline-flex' : 'none';
+  });
 }
 function editorInsertImagesRow(input, divId){
   const files = [...input.files];
@@ -3687,63 +3279,6 @@ function applyImgAlign(align){
   else if(align === 'right'){ _selectedImg.style.marginLeft = 'auto'; _selectedImg.style.marginRight = '0'; }
   else { _selectedImg.style.marginLeft = 'auto'; _selectedImg.style.marginRight = 'auto'; }
 }
-
-// 이미지 배치 방식 변경
-function applyImgFloat(type){
-  if(!_selectedImg){ toast('이미지를 먼저 클릭해서 선택하세요.','warn'); return; }
-  const img = _selectedImg;
-
-  // 기존 float/display 초기화
-  img.style.float = '';
-  img.style.display = '';
-  img.style.marginLeft = '';
-  img.style.marginRight = '';
-  img.style.marginTop = '';
-  img.style.marginBottom = '';
-  img.style.maxWidth = '';
-  img.style.width = img.style.width || 'auto';
-
-  switch(type){
-    case 'inline':
-      // 텍스트 줄 안에 배치
-      img.style.display = 'inline';
-      img.style.verticalAlign = 'middle';
-      break;
-    case 'left':
-      // 왼쪽 배치, 텍스트 오른쪽으로 흐름
-      img.style.float = 'left';
-      img.style.marginRight = '12px';
-      img.style.marginBottom = '8px';
-      img.style.display = 'block';
-      break;
-    case 'right':
-      // 오른쪽 배치, 텍스트 왼쪽으로 흐름
-      img.style.float = 'right';
-      img.style.marginLeft = '12px';
-      img.style.marginBottom = '8px';
-      img.style.display = 'block';
-      break;
-    case 'block-center':
-      // 가운데 독립 배치
-      img.style.display = 'block';
-      img.style.marginLeft = 'auto';
-      img.style.marginRight = 'auto';
-      img.style.marginTop = '8px';
-      img.style.marginBottom = '8px';
-      img.style.float = 'none';
-      break;
-    case 'full':
-      // 전체 폭
-      img.style.display = 'block';
-      img.style.width = '100%';
-      img.style.maxWidth = '100%';
-      img.style.marginLeft = '0';
-      img.style.marginRight = '0';
-      img.style.float = 'none';
-      break;
-  }
-  toast('배치 방식이 변경됐습니다.','success');
-}
 function deleteSelectedImg(){
   if(!_selectedImg) return;
   customConfirm('이미지를 삭제하시겠습니까?', ()=>{
@@ -3903,32 +3438,8 @@ function submitSign(){
 
 function renderSignHistory(){
   const room = currentRoom();
+  // 지침서별로 해당 방의 서명만
   const sigs = room ? S.signatures.filter(s=>!s.room||s.room===room.name) : S.signatures;
-
-  // 작성자/파트장/전문의 서명칸 업데이트
-  const roleMap = {
-    '작성자': 'writer', '임상병리사': 'writer',
-    '파트장': 'partleader', '팀장': 'partleader',
-    '전문의': 'doctor', '과장': 'doctor'
-  };
-  // 초기화
-  ['writer','partleader','doctor'].forEach(role=>{
-    const cell = document.getElementById('sign-cell-'+role);
-    if(cell) cell.innerHTML = '<span style="color:#aaa;font-size:12px">서명 없음</span>';
-  });
-  // 최신 서명으로 채우기
-  [...sigs].reverse().forEach(s=>{
-    const roleKey = roleMap[s.role];
-    if(!roleKey) return;
-    const cell = document.getElementById('sign-cell-'+roleKey);
-    if(!cell || cell.querySelector('img')) return; // 이미 채워진 경우 스킵
-    cell.innerHTML = `
-      <div style="font-size:10px;color:#555;margin-bottom:4px">${s.name} (${s.role})</div>
-      ${s.sigImg ? `<img src="${s.sigImg}" style="height:36px;max-width:100%">` : '<span style="font-size:11px">'+s.name+'</span>'}
-      <div style="font-size:10px;color:#888;margin-top:2px">${s.date}</div>
-    `;
-  });
-
   const tbody = document.getElementById('hist-tbody');
   if(!sigs.length){tbody.innerHTML='<tr><td colspan="8" class="empty">서명 이력 없음</td></tr>';return;}
   tbody.innerHTML = sigs.map((s,i)=>{
@@ -4853,6 +4364,524 @@ function printViewer(){
   document.body.setAttribute('data-print','viewer');
   window.print();
   setTimeout(()=>document.body.removeAttribute('data-print'), 500);
+}
+
+function printHistory(){
+  // 수정이력 탭만 인쇄
+  document.body.setAttribute('data-print','history');
+  window.print();
+  setTimeout(()=>document.body.removeAttribute('data-print'), 500);
+}
+
+// ═══════════════════════════════════════════════════════
+// 글자색 적용 (색상 미리보기 도트 동기화)
+// ═══════════════════════════════════════════════════════
+function applyForeColor(sel){
+  const val = sel.value;
+  if(!val) return;
+  const dot = document.getElementById('color-preview-dot');
+  if(dot) dot.style.background = val;
+  formatDoc('foreColor', val);
+  // 선택 초기화 안 하고 색상 유지
+}
+
+// ═══════════════════════════════════════════════════════
+// 문서 버전 정보 (topbar 동적 표시)
+// ═══════════════════════════════════════════════════════
+function renderDocInfo(){
+  if(!S.docInfo) S.docInfo = {docNo:'PO-1-01-01',version:'2025-08',lastRevised:'2025.08.20'};
+  const d = S.docInfo;
+  const setT = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  setT('di-docno', d.docNo);
+  setT('di-version', d.version);
+  setT('di-revised', d.lastRevised);
+}
+
+function openDocInfoModal(){
+  if(!S.docInfo) S.docInfo = {docNo:'PO-1-01-01',version:'2025-08',lastRevised:'2025.08.20'};
+  const d = S.docInfo;
+  document.getElementById('di-input-docno').value = d.docNo || '';
+  document.getElementById('di-input-version').value = d.version || '';
+  document.getElementById('di-input-revised').value = d.lastRevised || '';
+  document.getElementById('docinfo-modal').classList.add('open');
+}
+
+function saveDocInfo(){
+  if(!S.docInfo) S.docInfo = {};
+  S.docInfo.docNo = document.getElementById('di-input-docno').value.trim();
+  S.docInfo.version = document.getElementById('di-input-version').value.trim();
+  S.docInfo.lastRevised = document.getElementById('di-input-revised').value.trim();
+  saveState();
+  renderDocInfo();
+  closeModal('docinfo-modal');
+  toast('문서 정보가 저장되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════════
+// 자동 백업 (30분마다 JSON 파일 자동 다운로드)
+// ═══════════════════════════════════════════════════════
+let _autoBackupTimer = null;
+function restoreFromBackup(){
+  // 자동백업 키 목록
+  const autoKeys = Object.keys(localStorage)
+    .filter(k=>k.startsWith(STORE_KEY+'_autobk_'))
+    .sort().reverse(); // 최신순
+  const backupKey = STORE_KEY+'_backup';
+  const options = [];
+  if(localStorage.getItem(backupKey)) options.push({label:'직전 저장 백업', key: backupKey});
+  autoKeys.slice(0,3).forEach((k,i)=>{
+    const ts = parseInt(k.replace(STORE_KEY+'_autobk_',''));
+    const dt = isNaN(ts)?'알 수 없음':new Date(ts).toLocaleString('ko-KR');
+    options.push({label:'자동백업 '+dt, key:k});
+  });
+  if(!options.length){ toast('복구 가능한 백업이 없습니다.','warn'); return; }
+  const choice = options.map((o,i)=>`${i+1}. ${o.label}`).join('\n');
+  const sel = prompt('복구할 백업을 선택하세요 (번호 입력):\n\n'+choice);
+  if(!sel) return;
+  const idx = parseInt(sel)-1;
+  if(isNaN(idx)||idx<0||idx>=options.length){ toast('잘못된 선택입니다.','error'); return; }
+  try{
+    const data = localStorage.getItem(options[idx].key);
+    S = JSON.parse(data);
+    saveState(); renderAll(); renderDocInfo();
+    toast('백업에서 복구되었습니다: '+options[idx].label,'success');
+  } catch(e){
+    toast('복구 실패: '+e.message,'error');
+  }
+}
+
+function updateSaveIndicator(){
+  const el = document.getElementById('save-indicator');
+  const ltEl = document.getElementById('last-saved-time');
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(el){
+    el.textContent = '✅ 자동저장 완료 '+timeStr;
+    el.style.color = '#90ee90';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(()=>{ el.style.color = 'rgba(255,255,255,.4)'; el.textContent = '저장됨'; }, 3000);
+  }
+  if(ltEl) ltEl.textContent = now.toLocaleString('ko-KR');
+}
+
+function startAutoBackup(){
+  clearInterval(_autoBackupTimer);
+  _autoBackupTimer = setInterval(()=>{
+    try{
+      const data = JSON.stringify(S);
+      localStorage.setItem(STORE_KEY+'_autobk_'+Date.now(), data);
+      // 오래된 자동백업 정리 (최근 3개만 유지)
+      const keys = Object.keys(localStorage).filter(k=>k.startsWith(STORE_KEY+'_autobk_')).sort();
+      while(keys.length > 3){ localStorage.removeItem(keys.shift()); }
+    } catch(e){}
+  }, 30*60*1000); // 30분
+}
+
+// ═══════════════════════════════════════════════════════
+// 페이지 닫기/새로고침 경고
+// ═══════════════════════════════════════════════════════
+window.addEventListener('beforeunload', function(e){
+  // 항상 저장되어 있지만 경고로 실수 방지
+  const msg = '페이지를 닫으면 저장되지 않은 변경사항이 사라질 수 있습니다.';
+  e.returnValue = msg;
+  return msg;
+});
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<span>${type==='success'?'✅':type==='error'?'❌':type==='warn'?'⚠️':'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+</script>
+</body>
+</html>
+// ═══════════════════════════════════════════════════════
+// 새 서명 시스템
+// ═══════════════════════════════════════════════════════
+
+// ── Firebase 서명 저장/삭제 ─────────────────────────────
+function fbKeyOfficial(roomId, pageId){
+  return pageId ? roomId+'__'+pageId+'__official' : roomId+'__official';
+}
+function fbKeyReviews(roomId, pageId){
+  return pageId ? roomId+'__'+pageId+'__reviews' : roomId+'__reviews';
+}
+
+// 서명 데이터 로컬 저장소
+if(!window._signData) window._signData = {};
+
+function getSignData(key){ return window._signData[key] || {official:{}, reviews:[]}; }
+function setSignData(key, data){
+  window._signData[key] = data;
+  // Firebase 저장
+  if(window.fbSaveSignData) window.fbSaveSignData(key, data);
+}
+
+// ── 서명 테이블 렌더링 ──────────────────────────────────
+function renderSignSection(){
+  const room = currentRoom(); if(!room) return;
+  const container = document.getElementById('sign-table-container');
+  if(!container) return;
+
+  // 운영지침서: 1개 서명란
+  if(currentRoomId === 'room1'){
+    const key = fbKeyOfficial('room1');
+    const reviewKey = fbKeyReviews('room1');
+    const d = getSignData(key);
+    const r = getSignData(reviewKey);
+    container.innerHTML = buildSignTable(
+      '현장검사 운영지침서', key, reviewKey, d, r.reviews||[]
+    );
+  } else {
+    // 검사지침서: 각 페이지별 서명란
+    container.innerHTML = room.pages.map(page=>{
+      const key = fbKeyOfficial(currentRoomId, page.id);
+      const reviewKey = fbKeyReviews(currentRoomId, page.id);
+      const d = getSignData(key);
+      const r = getSignData(reviewKey);
+      return buildSignTable(page.title, key, reviewKey, d, r.reviews||[]);
+    }).join('');
+  }
+  // 캔버스 초기화
+  container.querySelectorAll('canvas[data-canvas]').forEach(c=> initNewCanvas(c));
+}
+
+function buildSignTable(title, officialKey, reviewKey, officialData, reviews){
+  const o = officialData.official || {};
+  const adminOnly = isAdminLoggedIn ? '' : 'style="display:none"';
+  const today = new Date().toISOString().slice(0,10);
+  const userName = currentUser || '';
+
+  // 공식 서명 셀 생성
+  function sigCell(role, label){
+    const val = o[role] || {};
+    return `<td style="border:1px solid #ccc;padding:6px;text-align:center;min-width:80px;vertical-align:top">
+      <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">${label}</div>
+      ${isAdminLoggedIn ? `
+        <input type="text" placeholder="이름" value="${val.name||''}"
+          style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;margin-bottom:2px;box-sizing:border-box"
+          onchange="updateOfficial('${officialKey}','${role}','name',this.value)">
+        <canvas data-canvas="${officialKey}_${role}" width="120" height="45"
+          style="border:1px dashed #aaa;border-radius:3px;width:100%;cursor:crosshair;display:block"></canvas>
+        <div style="display:flex;gap:4px;margin-top:2px">
+          <input type="date" value="${val.date||today}"
+            style="flex:1;font-size:8pt;border:1px solid #ddd;border-radius:3px;padding:1px 3px"
+            onchange="updateOfficial('${officialKey}','${role}','date',this.value)">
+          <button onclick="clearOfficialCanvas('${officialKey}','${role}')"
+            style="font-size:8pt;border:1px solid #ccc;background:#f5f5f5;border-radius:3px;padding:1px 4px;cursor:pointer">↺</button>
+        </div>
+      ` : `
+        <div style="font-size:9pt;font-weight:600">${val.name||''}</div>
+        ${val.sigImg ? `<img src="${val.sigImg}" style="height:36px;max-width:100%;margin:2px 0">` : '<div style="height:36px"></div>'}
+        <div style="font-size:8pt;color:#888">${val.date||''}</div>
+      `}
+    </td>`;
+  }
+
+  // 재검토 행
+  const reviewRows = reviews.length
+    ? reviews.map((rv,i)=>`
+        <tr>
+          <td style="border:1px solid #ccc;padding:5px;text-align:center;font-size:9pt">${rv.date||''}</td>
+          <td style="border:1px solid #ccc;padding:5px;text-align:center">
+            ${rv.sigImg ? `<img src="${rv.sigImg}" style="height:28px">` : ''}
+            <div style="font-size:9pt">${rv.name||''}</div>
+          </td>
+          <td style="border:1px solid #ccc;padding:5px;font-size:9pt">${rv.remark||'지침서 검토 완료'}</td>
+          ${isAdminLoggedIn ? `<td style="border:1px solid #ccc;padding:5px;text-align:center">
+            <button onclick="deleteReview('${reviewKey}',${i})" style="font-size:8pt;color:#c62828;border:1px solid #e57373;background:#fff5f5;border-radius:3px;padding:1px 6px;cursor:pointer">삭제</button>
+          </td>` : '<td style="border:1px solid #ccc;padding:5px"></td>'}
+        </tr>`).join('')
+    : `<tr><td colspan="4" style="border:1px solid #ccc;padding:8px;text-align:center;color:#aaa;font-size:9pt">재검토 서명 없음</td></tr>`;
+
+  return `
+  <div style="width:100%;margin-bottom:24px;font-family:'Malgun Gothic','맑은 고딕',sans-serif">
+    <div style="background:#00583F;color:#fff;font-weight:700;padding:7px 12px;font-size:11pt;border-radius:4px 4px 0 0">${title}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10pt">
+      <!-- 행1: 작성자/파트장/전문의/과장/검사시작날짜 -->
+      <tr>
+        ${sigCell('writer','작성자 서명')}
+        ${sigCell('partleader','파트장 서명')}
+        ${sigCell('doctor','전문의 서명')}
+        ${sigCell('chief','과장 서명')}
+        <td style="border:1px solid #ccc;padding:6px;text-align:center;vertical-align:top">
+          <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">검사시작 날짜</div>
+          ${isAdminLoggedIn
+            ? `<input type="date" value="${(o.startDate||'')}"
+                style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-sizing:border-box"
+                onchange="updateOfficialField('${officialKey}','startDate',this.value)">`
+            : `<div style="font-size:9pt;padding:4px">${o.startDate||''}</div>`
+          }
+        </td>
+      </tr>
+      <!-- 행2: 검사중단날짜/중단사유/새검사법 -->
+      <tr>
+        <td style="border:1px solid #ccc;padding:6px;text-align:center;vertical-align:top">
+          <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">검사중단 날짜</div>
+          ${isAdminLoggedIn
+            ? `<input type="date" value="${o.stopDate||''}"
+                style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-sizing:border-box"
+                onchange="updateOfficialField('${officialKey}','stopDate',this.value)">`
+            : `<div style="font-size:9pt;padding:4px">${o.stopDate||''}</div>`
+          }
+        </td>
+        <td colspan="3" style="border:1px solid #ccc;padding:6px;vertical-align:top">
+          <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">중단 사유</div>
+          ${isAdminLoggedIn
+            ? `<textarea rows="2" style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-sizing:border-box;resize:none"
+                onchange="updateOfficialField('${officialKey}','stopReason',this.value)">${o.stopReason||''}</textarea>`
+            : `<div style="font-size:9pt;padding:4px;min-height:36px">${o.stopReason||''}</div>`
+          }
+        </td>
+        <td style="border:1px solid #ccc;padding:6px;vertical-align:top">
+          <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">새 검사법</div>
+          ${isAdminLoggedIn
+            ? `<textarea rows="2" style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-sizing:border-box;resize:none"
+                onchange="updateOfficialField('${officialKey}','newMethod',this.value)">${o.newMethod||''}</textarea>`
+            : `<div style="font-size:9pt;padding:4px;min-height:36px">${o.newMethod||''}</div>`
+          }
+        </td>
+      </tr>
+      <!-- 행3: 계장서명/전문의서명/기타사항 -->
+      <tr>
+        ${sigCell('chief2','계장 서명')}
+        ${sigCell('doctor2','전문의 서명')}
+        <td colspan="3" style="border:1px solid #ccc;padding:6px;vertical-align:top">
+          <div style="font-size:9pt;color:#555;margin-bottom:4px;background:#f0f0f0;padding:2px 4px">기타사항</div>
+          ${isAdminLoggedIn
+            ? `<textarea rows="2" style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:2px 4px;box-sizing:border-box;resize:none"
+                onchange="updateOfficialField('${officialKey}','notes',this.value)">${o.notes||''}</textarea>`
+            : `<div style="font-size:9pt;padding:4px;min-height:36px">${o.notes||''}</div>`
+          }
+        </td>
+      </tr>
+      <!-- 행4: 재검토 헤더 -->
+      <tr style="background:#f0f0f0">
+        <td style="border:1px solid #ccc;padding:6px;font-weight:700;font-size:9pt;text-align:center">재검토일</td>
+        <td style="border:1px solid #ccc;padding:6px;font-weight:700;font-size:9pt;text-align:center">서명</td>
+        <td colspan="2" style="border:1px solid #ccc;padding:6px;font-weight:700;font-size:9pt;text-align:center">비고(주요 변경사항)</td>
+        <td style="border:1px solid #ccc;padding:6px;font-weight:700;font-size:9pt;text-align:center">관리</td>
+      </tr>
+      <!-- 재검토 행들 -->
+      ${reviewRows}
+      <!-- 재검토 입력행 -->
+      <tr id="review-input-row-${reviewKey.replace(/[^a-zA-Z0-9]/g,'_')}">
+        <td style="border:1px solid #ccc;padding:6px;text-align:center;font-size:9pt">${today}</td>
+        <td style="border:1px solid #ccc;padding:6px;text-align:center">
+          <div style="font-size:9pt;font-weight:600;margin-bottom:2px">${userName}</div>
+          <canvas data-review-canvas="${reviewKey}" width="100" height="40"
+            style="border:1px dashed #aaa;border-radius:3px;width:100%;cursor:crosshair;display:block"></canvas>
+          <button onclick="clearReviewCanvas('${reviewKey}')"
+            style="font-size:8pt;border:1px solid #ccc;background:#f5f5f5;border-radius:3px;padding:1px 4px;cursor:pointer;margin-top:2px">↺ 지우기</button>
+        </td>
+        <td colspan="2" style="border:1px solid #ccc;padding:6px">
+          <input type="text" id="review-remark-${reviewKey.replace(/[^a-zA-Z0-9]/g,'_')}"
+            value="지침서 검토 완료"
+            style="width:100%;font-size:9pt;border:1px solid #ddd;border-radius:3px;padding:3px 6px;box-sizing:border-box">
+        </td>
+        <td style="border:1px solid #ccc;padding:6px;text-align:center">
+          <button onclick="submitReview('${reviewKey}')"
+            style="background:#00583F;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:9pt;cursor:pointer;font-family:inherit">✅ 서명</button>
+        </td>
+      </tr>
+    </table>
+  </div>`;
+}
+
+// ── 서명 데이터 업데이트 ────────────────────────────────
+function updateOfficial(officialKey, role, field, value){
+  const d = getSignData(officialKey);
+  if(!d.official) d.official = {};
+  if(!d.official[role]) d.official[role] = {};
+  d.official[role][field] = value;
+  setSignData(officialKey, d);
+}
+
+function updateOfficialField(officialKey, field, value){
+  const d = getSignData(officialKey);
+  if(!d.official) d.official = {};
+  d.official[field] = value;
+  setSignData(officialKey, d);
+}
+
+function saveOfficialCanvases(officialKey){
+  const roles = ['writer','partleader','doctor','chief','chief2','doctor2'];
+  const d = getSignData(officialKey);
+  if(!d.official) d.official = {};
+  roles.forEach(role=>{
+    const canvas = document.querySelector(`canvas[data-canvas="${officialKey}_${role}"]`);
+    if(canvas){
+      const blank = document.createElement('canvas');
+      blank.width = canvas.width; blank.height = canvas.height;
+      if(canvas.toDataURL() !== blank.toDataURL()){
+        if(!d.official[role]) d.official[role] = {};
+        d.official[role].sigImg = canvas.toDataURL('image/png');
+      }
+    }
+  });
+  setSignData(officialKey, d);
+  toast('서명이 저장됐습니다.','success');
+  renderSignSection();
+}
+
+function clearOfficialCanvas(officialKey, role){
+  const canvas = document.querySelector(`canvas[data-canvas="${officialKey}_${role}"]`);
+  if(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+
+// ── 재검토 서명 ─────────────────────────────────────────
+function submitReview(reviewKey){
+  const canvas = document.querySelector(`canvas[data-review-canvas="${reviewKey}"]`);
+  const remarkId = 'review-remark-'+reviewKey.replace(/[^a-zA-Z0-9]/g,'_');
+  const remark = (document.getElementById(remarkId)||{}).value || '지침서 검토 완료';
+  const today = new Date().toISOString().slice(0,10);
+
+  if(!canvas){ toast('서명란을 찾을 수 없습니다.','error'); return; }
+
+  const blank = document.createElement('canvas');
+  blank.width = canvas.width; blank.height = canvas.height;
+  if(canvas.toDataURL() === blank.toDataURL()){
+    toast('서명을 먼저 입력해주세요.','warn'); return;
+  }
+
+  const d = getSignData(reviewKey);
+  if(!d.reviews) d.reviews = [];
+  d.reviews.push({
+    date: today,
+    name: currentUser || '',
+    sigImg: canvas.toDataURL('image/png'),
+    remark
+  });
+  setSignData(reviewKey, d);
+  toast('재검토 서명이 완료됐습니다.','success');
+  renderSignSection();
+}
+
+function deleteReview(reviewKey, idx){
+  if(!confirm('이 서명을 삭제하시겠습니까?')) return;
+  const d = getSignData(reviewKey);
+  if(d.reviews) d.reviews.splice(idx,1);
+  setSignData(reviewKey, d);
+  renderSignSection();
+}
+
+function clearReviewCanvas(reviewKey){
+  const canvas = document.querySelector(`canvas[data-review-canvas="${reviewKey}"]`);
+  if(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+}
+
+// ── 캔버스 서명 초기화 ──────────────────────────────────
+function initNewCanvas(canvas){
+  if(canvas._inited) return;
+  canvas._inited = true;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  let drawing = false, lx = 0, ly = 0;
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return [(src.clientX-r.left)*(canvas.width/r.width),
+            (src.clientY-r.top)*(canvas.height/r.height)];
+  }
+  canvas.addEventListener('mousedown', e=>{ drawing=true; [lx,ly]=pos(e); });
+  canvas.addEventListener('mousemove', e=>{ if(!drawing) return; const [x,y]=pos(e);
+    ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); [lx,ly]=[x,y]; });
+  canvas.addEventListener('mouseup', ()=>drawing=false);
+  canvas.addEventListener('mouseleave', ()=>drawing=false);
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); drawing=true; [lx,ly]=pos(e); },{passive:false});
+  canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!drawing) return;
+    const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); [lx,ly]=[x,y]; },{passive:false});
+  canvas.addEventListener('touchend', ()=>drawing=false);
+  // 기존 서명 이미지 복원
+  const officialKey = canvas.dataset.canvas;
+  if(officialKey){
+    const parts = officialKey.split('_');
+    const role = parts[parts.length-1];
+    const key = parts.slice(0,-1).join('_');
+    const d = getSignData(key);
+    if(d.official && d.official[role] && d.official[role].sigImg){
+      const img = new Image();
+      img.onload = ()=> ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      img.src = d.official[role].sigImg;
+    }
+  }
+}
+
+// ── Firebase 서명 데이터 저장/로드 ──────────────────────
+window.fbSaveSignData = async function(key, data){
+  // poct_signatures 컬렉션에 키별로 저장
+  try{
+    if(window.fbSaveSign){
+      // 기존 fbSaveSign은 개별 서명용 → 새 방식으로 직접 저장
+    }
+    // localStorage 임시 저장
+    try{ localStorage.setItem('signData_'+key, JSON.stringify(data)); } catch(e){}
+  } catch(e){ console.error('서명 저장 오류:', e); }
+};
+
+window.fbLoadSignData = async function(){
+  // localStorage에서 로드
+  Object.keys(localStorage).filter(k=>k.startsWith('signData_')).forEach(k=>{
+    try{
+      const key = k.replace('signData_','');
+      window._signData[key] = JSON.parse(localStorage.getItem(k));
+    } catch(e){}
+  });
+};
+
+// renderAll에서 호출
+function renderSignSection_wrapper(){
+  // 열람 탭이 활성화된 경우만 렌더링
+  const viewer = document.getElementById('tab-viewer');
+  if(viewer && viewer.classList.contains('active')){
+    renderSignSection();
+  }
+}
+
+// ── 관리자 서명 저장 버튼 (뷰어 하단) ──────────────────
+function saveAllOfficialSigns(){
+  const room = currentRoom(); if(!room) return;
+  if(currentRoomId === 'room1'){
+    saveOfficialCanvases(fbKeyOfficial('room1'));
+  } else {
+    room.pages.forEach(page=>{
+      saveOfficialCanvases(fbKeyOfficial(currentRoomId, page.id));
+    });
+  }
+}
+
+// ── 초기화 ──────────────────────────────────────────────
+window.fbLoadSignData && window.fbLoadSignData();
+
+// 인쇄 (열람·서명 탭 전용)
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// ─── 탭별 전용 인쇄 함수 ───────────────────────────────
+function printViewer(){
+  // tab-viewer가 활성화 상태인지 확인
+  const tabViewer = document.getElementById('tab-viewer');
+  if(!tabViewer || !tabViewer.classList.contains('active')){
+    // 지침서 열람 탭으로 전환 후 출력
+    showMainTab('tab-viewer');
+    setTimeout(()=>{ _doPrint(); }, 300);
+  } else {
+    _doPrint();
+  }
+}
+function _doPrint(){
+  const mobileTocScreen = document.getElementById('mobile-toc-screen');
+  if(mobileTocScreen) mobileTocScreen.style.display = 'none';
+  document.body.setAttribute('data-print','viewer');
+  window.print();
+  setTimeout(()=>{
+    document.body.removeAttribute('data-print');
+    if(mobileTocScreen) mobileTocScreen.style.display = '';
+  }, 1000);
 }
 
 function printHistory(){
