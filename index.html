@@ -277,6 +277,11 @@
     if(loaded){
       if(typeof renderAll === 'function') renderAll();
       if(typeof renderDocInfo === 'function') renderDocInfo();
+      // 로그인 오버레이가 닫혀 있고 사용자가 없으면 다시 표시
+      const overlay = document.getElementById('user-login-overlay');
+      if(overlay && overlay.style.display === 'none' && !window.currentUser){
+        if(typeof showUserLoginModal === 'function') showUserLoginModal();
+      }
       if(typeof toast === 'function') toast('✅ 지침서 로드 완료', 'success');
     } else {
       if(typeof toast === 'function') toast('⚠️ 로드 실패 — 네트워크를 확인하고 새로고침해 주세요.', 'warn');
@@ -381,8 +386,8 @@ textarea{resize:vertical}
 .doc-hdr{background:linear-gradient(135deg,#003D2B,var(--navy2));color:#fff;border-radius:var(--radius2);padding:20px 24px;margin-bottom:16px;box-shadow:var(--shadow)}
 .doc-hdr h1{font-size:20px;font-weight:700;margin-bottom:5px}
 .doc-hdr p{font-size:12px;opacity:.8}
-.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%}
-.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:visible;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
+.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:hidden}
+.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
 .a4-page p{margin:0 0 9px;line-height:1.75;}
 /* 제목 계층 */
@@ -420,7 +425,7 @@ textarea{resize:vertical}
 .a4-page[contenteditable=true]{outline:2px solid var(--navy2);outline-offset:2px}
 .edit-mode-bar{background:var(--navy2);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
 .page-edit-badge{position:absolute;top:8px;right:8px;background:var(--gold);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
-.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center}
+.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center;overflow:hidden}
 .page-controls{display:flex;gap:6px;margin-bottom:8px;justify-content:center;width:210mm}
 /* 서명 페이지 임베드 스타일 */
 .page-sign-section{background:#EAF7F0;border:2px solid var(--navy2);border-radius:var(--radius);padding:14px;margin-top:16px;font-size:10pt}
@@ -1899,6 +1904,9 @@ function updateUIForRole(){
   if(editBtn) editBtn.style.display = isAdminLoggedIn ? '' : 'none';
   const adminBtn = document.getElementById('tnav-admin');
   if(adminBtn) adminBtn.style.display = isAdminLoggedIn ? '' : 'none';
+  // 수정이력 탭은 로그인한 모든 사용자에게 표시
+  const histBtn = document.getElementById('tnav-history');
+  if(histBtn) histBtn.style.display = currentUser ? '' : 'none';
   const saveBtn = document.getElementById('topbar-save-btn');
   if(saveBtn) saveBtn.style.display = 'flex';
   const loadBtn = document.getElementById('topbar-load-btn');
@@ -2178,20 +2186,17 @@ function showMobileTOC(){
   if(tocBtn) tocBtn.classList.add('active');
 }
 
-function selectMobilePage(roomId, pageId){
-  // 방 전환
-  S.currentRoom = roomId;
-  renderAll();
-  // 뷰어 탭으로 이동
-  const viewerTab = document.querySelector('.tnav[onclick*="tab-viewer"]') || document.querySelector('.tnav');
-  showMainTab('tab-viewer', viewerTab);
-  // 해당 페이지로 스크롤
-  setTimeout(() => scrollToPage(pageId), 100);
-}
-
 function hideMobileTOC(){
   const tocScreen = document.getElementById('mobile-toc-screen');
   if(tocScreen) tocScreen.style.display = 'none';
+}
+
+function selectMobilePage(roomId, pageId){
+  S.currentRoom = roomId;
+  renderAll();
+  const viewerTab = document.querySelector('.tnav[onclick*="tab-viewer"]') || document.querySelector('.tnav');
+  showMainTab('tab-viewer', viewerTab);
+  setTimeout(() => scrollToPage(pageId), 100);
 }
 
 // ═══════════════════════════════════════════════════════
