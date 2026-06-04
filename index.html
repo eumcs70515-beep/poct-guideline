@@ -364,17 +364,17 @@ body{font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto San
 .tnav.active{color:#00583F;background:rgba(0,88,63,.15);border-bottom-color:#00583F}
 .topbar-info{font-size:11px;color:#3a6a55;opacity:1;text-align:right;line-height:1.5;font-weight:500}
 .layout{display:flex;height:calc(100vh - 54px);margin-top:54px}
-.sidebar{position:fixed;top:54px;left:0;bottom:0;width:260px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;overflow-y:auto;border-right:2px solid var(--navy4)}
+.sidebar{position:fixed;top:54px;left:0;bottom:0;width:260px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;overflow-y:auto;overflow-x:hidden;border-right:2px solid var(--navy4)}
 .main-content{margin-left:260px;flex:1;overflow-y:auto;height:calc(100vh - 54px)}
 .sb-section{border-bottom:1px solid var(--border)}
 .sb-head{padding:10px 14px 7px;font-size:10px;font-weight:700;color:var(--navy);letter-spacing:.8px;text-transform:uppercase;background:var(--navy3);border-bottom:1px solid var(--border)}
 .sb-room{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);border-bottom:1px solid var(--border2);background:var(--navy3)}
 .sb-room:hover{background:var(--navy4)}
 .sb-room.active{background:linear-gradient(90deg,#003D2B,var(--navy));color:#fff}
-.sb-item{display:flex;align-items:center;gap:8px;padding:7px 14px 7px 22px;cursor:pointer;font-size:12.5px;color:var(--text);transition:background .1s;border-left:3px solid transparent}
+.sb-item{display:flex;align-items:flex-start;gap:8px;padding:7px 10px 7px 14px;cursor:pointer;font-size:12.5px;color:var(--text);transition:background .1s;border-left:3px solid transparent;word-break:break-word;overflow-wrap:break-word}
 .sb-item:hover{background:var(--navy3)}
 .sb-item.active{background:var(--navy3);border-left-color:var(--teal);font-weight:600;color:var(--navy)}
-.sb-item .sb-icon{width:18px;text-align:center;color:var(--muted);font-size:12px}
+.sb-item .sb-icon{min-width:18px;width:18px;text-align:right;color:var(--muted);font-size:12px;flex-shrink:0;padding-top:1px}
 .prog-bg{height:5px;background:#e0e4ec;border-radius:3px;overflow:hidden;margin:6px 14px}
 .prog-fill{height:100%;background:var(--navy2);border-radius:3px;transition:width .3s}
 .page{display:none}.page.active{display:block}
@@ -4004,6 +4004,8 @@ function updateSidebarProgress(){
 function addHistory(type, page, author, detail){
   const entry = {id:'h_'+Date.now(), type, page, author, date:TODAY, reason:detail, detail};
   S.history.unshift(entry);
+  // 50개 초과 시 오래된 항목 자동 제거
+  if(S.history.length > 50) S.history = S.history.slice(0, 50);
   // 자동 TOC 누적은 별도 수정이력 시스템으로 통합 운영 (비활성화)
   // appendHistoryToTOC(entry);
 }
@@ -4209,14 +4211,35 @@ function signHistEntry(ocId, roleKey){
 // ═══════════════════════════════════════════════════════
 function renderAdminStats(){
   renderAdminUserList();
-  const total = S.signatures.length;
-  const hasPL = S.signatures.some(s=>s.role==='파트장');
-  const hasMD = S.signatures.some(s=>s.role==='전문의'||s.role==='과장');
+
+  // ── 신버전 signSheets 기반 통계 ──
+  const signSheets = S.signSheets || {};
+  const signPageConfig = S.signPageConfig || {};
+
+  // 전체 서명란 페이지 수 (signPageConfig 전체 합산)
+  const totalSignPages = Object.values(signPageConfig).reduce((a,arr)=>a+(arr?arr.length:0), 0);
+
+  // 전체 서명 기록 수 (모든 서명란 botRows 합산)
+  const totalSigs = Object.values(signSheets).reduce((a,sheet)=>a+((sheet.botRows||[]).length), 0);
+
+  // 미서명 서명란 수 (botRows가 비어있는 서명란)
+  const allSignPageIds = Object.values(signPageConfig).flat();
+  const unsignedCount = allSignPageIds.filter(pid=>{
+    const sheet = signSheets[pid];
+    return !sheet || !sheet.botRows || sheet.botRows.length === 0;
+  }).length;
+
+  // 승인 상태
+  const approvalStatus = totalSignPages === 0 ? '—'
+    : unsignedCount === 0 ? '완료'
+    : `미완 (${unsignedCount}개)`;
+  const approvalColor = unsignedCount === 0 && totalSignPages > 0 ? '#1b5e20' : '#c62828';
+
   document.getElementById('admin-stats').innerHTML = `
     <div class="stat-box"><div class="stat-num">${S.rooms.length}</div><div class="stat-lbl">📂 지침서 방</div></div>
-    <div class="stat-box"><div class="stat-num">${S.rooms.reduce((a,r)=>a+r.pages.length,0)}</div><div class="stat-lbl">📄 전체 페이지</div></div>
-    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">✅ 서명 총수</div></div>
-    <div class="stat-box"><div class="stat-num">${hasPL&&hasMD?'완료':'미완'}</div><div class="stat-lbl">🔐 승인 상태</div></div>
+    <div class="stat-box"><div class="stat-num">${totalSignPages}</div><div class="stat-lbl">✍️ 서명란 총수</div></div>
+    <div class="stat-box"><div class="stat-num">${totalSigs}</div><div class="stat-lbl">✅ 서명 기록 수</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:${approvalColor};font-size:${unsignedCount===0?'':'20px'}">${approvalStatus}</div><div class="stat-lbl">🔐 승인 상태</div></div>
   `;
   const tbody = document.getElementById('admin-sig-tbody');
   tbody.innerHTML = S.signatures.length ? S.signatures.map((s,i)=>{
@@ -4389,6 +4412,21 @@ function sbRefreshPreview(){
 function migrateExistingPages(){
   if(!S || !S.rooms) return;
   let changed = false;
+
+  // ★ officialChanges room 필드 보정
+  // page 제목으로 실제 소속 방을 찾아 room 필드 수정
+  if(S.officialChanges && S.officialChanges.length){
+    S.officialChanges.forEach(oc=>{
+      if(!oc.location) return;
+      const belongRoom = S.rooms.find(r=>
+        r.pages && r.pages.some(p=>p.title===oc.location || p.id===oc.location)
+      );
+      if(belongRoom && belongRoom.name !== oc.room){
+        oc.room = belongRoom.name;
+        changed = true;
+      }
+    });
+  }
 
   S.rooms.forEach(room => {
     room.pages.forEach(page => {
@@ -5017,9 +5055,13 @@ function toggleAllAutoHist(chk){
 function promoteSelectedToOfficial(){
   const selected = [...document.querySelectorAll('.auto-hist-chk:checked')].map(c=>c.dataset.id);
   if(!selected.length){ toast('항목을 선택해 주세요.','warn'); return; }
-  const room = currentRoom();
   selected.forEach(hid=>{
     const h = (S.history||[]).find(x=>x.id===hid); if(!h) return;
+    // 이력 항목의 페이지가 속한 방을 직접 찾아서 저장
+    const belongRoom = S.rooms.find(r=>
+      r.pages && r.pages.some(p=>p.title===h.page || p.id===h.page)
+    );
+    const roomName = belongRoom ? belongRoom.name : (currentRoom()?currentRoom().name:'');
     S.officialChanges.unshift({
       id:'oc_'+Date.now()+'_'+Math.random().toString(36).slice(2),
       date: h.date||TODAY,
@@ -5027,7 +5069,7 @@ function promoteSelectedToOfficial(){
       reason: h.detail||h.reason||'',
       location: h.page||'',
       content: h.detail||h.reason||'',
-      room: room?room.name:'',
+      room: roomName,
       signs:{writer:{name:'',date:'',img:''},partLeader:{name:'',date:'',img:''},doctor:{name:'',date:'',img:''}},
       selected:false,
       fromAuto: true
