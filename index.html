@@ -139,6 +139,28 @@
     } catch(e){ console.error('FB 페이지 저장 오류:', docId, e); throw e; }
   };
 
+  // 메타만 저장 (마이그레이션용 — 페이지 html 건드리지 않음)
+  window.fbSaveMetaOnly = async function(){
+    if(typeof S === 'undefined') return;
+    try{
+      const roomsMeta = S.rooms.map(r=>({
+        id:r.id, name:r.name, desc:r.desc||'',
+        pages: r.pages.map(p=>({ id:p.id, title:p.title }))
+      }));
+      await setDoc(META_DOC, {
+        docInfo:        S.docInfo        || {},
+        history:        S.history        || [],
+        officialChanges:S.officialChanges|| [],
+        signPageConfig: S.signPageConfig || {},
+        adminUsers:     S.adminUsers     || ['권희정','오세진'],
+        roomsMeta,
+        updatedAt: new Date().toISOString(),
+        updatedBy: (typeof currentUser !== 'undefined') ? currentUser : ''
+      });
+      console.log('메타 저장 완료');
+    } catch(e){ console.error('메타 저장 오류:', e); }
+  };
+
   // 전체 저장 (관리자 저장 버튼)
   window.fbSaveContent = async function(){
     if(typeof S === 'undefined') return;
@@ -261,8 +283,11 @@
   // 실시간 동기화 (일반 사용자)
   // ═══════════════════════════════════════
   window.fbStartContentSync = function(){
+    let isFirst = true;
     onSnapshot(META_DOC, async (snap) => {
       if(!snap.exists()) return;
+      // 최초 발동은 무시 — fbStartSync에서 이미 처리함
+      if(isFirst){ isFirst = false; return; }
       if(typeof isAdminLoggedIn !== 'undefined' && isAdminLoggedIn) return;
       await window.fbLoadContent();
       if(typeof renderAll === 'function') renderAll();
@@ -303,13 +328,6 @@
   window.fbStartSync = async function(){
     if(typeof toast === 'function') toast('☁️ 지침서를 불러오는 중...', 'info');
     const loaded = await window.fbLoadContent();
-    // ★ 서명 시트 데이터 병렬 로드
-    if(window.fbLoadAllSignSheets){
-      window.fbLoadAllSignSheets().then(sheets=>{
-        if(typeof S !== 'undefined') S.signSheets = sheets || {};
-        if(typeof renderViewerPages === 'function') renderViewerPages();
-      });
-    }
     if(loaded){
       // ★ 런타임 마이그레이션: 기존 페이지 HTML 자동 수정
       if(typeof migrateExistingPages === 'function') migrateExistingPages();
@@ -324,6 +342,17 @@
           viewer.innerHTML = '<div style="text-align:center;padding:60px 20px"><div style="font-size:48px;margin-bottom:16px">⚠️</div><h3 style="color:#c62828;margin-bottom:8px">지침서를 불러오지 못했습니다</h3><p style="font-size:13px;color:#888;margin-bottom:20px">네트워크 연결을 확인하고 다시 시도해 주세요.</p><button onclick="window.fbStartSync()" style="background:#00583F;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">🔄 다시 불러오기</button></div>';
         }
       }, 6000);
+    }
+    // ★ 서명 시트 데이터 — 렌더링 완료 후 백그라운드 로드
+    if(window.fbLoadAllSignSheets){
+      window.fbLoadAllSignSheets().then(sheets=>{
+        if(typeof S !== 'undefined' && sheets && Object.keys(sheets).length > 0){
+          S.signSheets = sheets;
+          if(typeof initSignSheet === 'function'){
+            Object.keys(sheets).forEach(pid => initSignSheet(pid));
+          }
+        }
+      }).catch(e=>{ console.warn('SignSheet 로드 실패:', e.message); });
     }
     window.fbStartSignSync();
     window.fbStartContentSync();
@@ -4411,9 +4440,11 @@ function sbRefreshPreview(){
 // ═══════════════════════════════════════════════════════
 function migrateExistingPages(){
   if(!S || !S.rooms) return;
-  let changed = false;
 
-  // ★ signPageConfig 정리 — new-sign-sheet가 아닌 일반 페이지 ID 제거
+  // ── 메타 변경 (Firebase 저장 대상) ──────────────────
+  let metaChanged = false;
+
+  // ① signPageConfig — 로딩중 html인 페이지는 판단 보류, new-sign-sheet만 남김
   if(S.signPageConfig){
     Object.keys(S.signPageConfig).forEach(roomId=>{
       const room = S.rooms.find(r=>r.id===roomId);
@@ -4421,17 +4452,19 @@ function migrateExistingPages(){
       const before = S.signPageConfig[roomId] || [];
       const after = before.filter(pid=>{
         const page = room.pages.find(p=>p.id===pid);
-        return page && page.html && page.html.includes('new-sign-sheet');
+        if(!page || !page.html) return false;
+        // 로딩중 html이면 판단 보류 (유지)
+        if(page.html.includes('불러오는 중')) return true;
+        return page.html.includes('new-sign-sheet');
       });
       if(after.length !== before.length){
         S.signPageConfig[roomId] = after;
-        changed = true;
+        metaChanged = true;
       }
     });
   }
 
-  // ★ officialChanges room 필드 보정
-  // page 제목으로 실제 소속 방을 찾아 room 필드 수정
+  // ② officialChanges room 필드 보정
   if(S.officialChanges && S.officialChanges.length){
     S.officialChanges.forEach(oc=>{
       if(!oc.location) return;
@@ -4440,54 +4473,48 @@ function migrateExistingPages(){
       );
       if(belongRoom && belongRoom.name !== oc.room){
         oc.room = belongRoom.name;
-        changed = true;
+        metaChanged = true;
       }
     });
   }
 
+  // 메타 변경사항만 Firebase 저장 (페이지 html 건드리지 않음)
+  if(metaChanged){
+    if(window.fbSaveMetaOnly) window.fbSaveMetaOnly().catch(e=>console.warn('마이그레이션 메타 저장 오류:',e));
+    console.log('✅ 메타 마이그레이션 완료');
+  }
+
+  // ── 페이지 html 변환 (메모리만, Firebase 저장 안 함) ──
   S.rooms.forEach(room => {
     room.pages.forEach(page => {
       if(!page.html) return;
+      // 로딩중 html은 건너뜀
+      if(page.html.includes('불러오는 중')) return;
+
       let html = page.html;
 
-      // 1) '계장 서명' → '파트장 서명' 전체 치환
+      // ③ '계장 서명' → '파트장 서명'
       if(html.includes('계장 서명')){
         html = html.replace(/계장 서명/g, '파트장 서명');
-        changed = true;
       }
 
-      // 0) 구형 정적 서명란 → new-sign-sheet 형식 자동 변환
-      // 조건: new-sign-sheet 클래스 없고, 서명란 키워드 포함 표가 있는 페이지
+      // ④ 구형 정적 서명란 → new-sign-sheet 형식 변환 (메모리만)
       if(!html.includes('new-sign-sheet') &&
          (html.includes('작성자 서명') || html.includes('파트장 서명') || html.includes('전문의 서명'))){
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
-
-        // 제목 추출 (h2 첫 번째)
         const h2 = tmp.querySelector('h2');
         const pageTitle = h2 ? h2.textContent.trim() : page.title;
-
-        // 검사시작 날짜 추출 (기존 표 td 중 날짜 형식 값)
         let startDate = '';
         tmp.querySelectorAll('td').forEach(td => {
           const t = td.textContent.trim();
           if(/^\d{4}[\.-]\d{2}[\.-]\d{2}$/.test(t)) startDate = t;
         });
-
-        // 새 서명 시트 HTML 생성 (기존 page.id 재사용)
         html = buildNewSignSheetHtml(pageTitle, page.id, startDate);
-        changed = true;
-
-        // signSheets 초기화 (없는 경우에만)
         if(!S.signSheets) S.signSheets = {};
         if(!S.signSheets[page.id]){
-          S.signSheets[page.id] = {
-            topSigns: startDate ? {startDate:{val:startDate}} : {},
-            midRows:{}, bot3Rows:{}, botRows:[]
-          };
+          S.signSheets[page.id] = {topSigns:{}, midRows:{}, bot3Rows:{}, botRows:[]};
         }
-
-        // signPageConfig 자동 등록
         if(!S.signPageConfig) S.signPageConfig = {};
         if(!S.signPageConfig[room.id]) S.signPageConfig[room.id] = [];
         if(!S.signPageConfig[room.id].includes(page.id)){
@@ -4495,31 +4522,37 @@ function migrateExistingPages(){
         }
       }
 
-      // 2) new-sign-sheet 포함 페이지에 표2/표3 자동 삽입
+      // ⑤ new-sign-sheet 표2/표3 자동 삽입 (메모리만)
       if(html.includes('new-sign-sheet')){
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
         const sheets = tmp.querySelectorAll('.new-sign-sheet[data-page-id]');
+        let innerChanged = false;
         sheets.forEach(sheet => {
           const pid = sheet.dataset.pageId;
-
-          // 표2(검사중단) 누락 확인: saveInlineCell 'mid','stopDate' 포함 여부
           const hasMidTable = sheet.innerHTML.includes("'mid','stopDate'");
-          // 표3(파트장2/전문의2/기타) 누락 확인
           const hasBot3Table = sheet.innerHTML.includes("'bot3','extra'");
-
-          // 표1 다음에 표2/표3 삽입
-          const tables = Array.from(sheet.querySelectorAll('table'));
-          if(tables.length === 0) return;
-
-          // 표1: 작성자/파트장/전문의/과장/검사시작날짜
-          // 표4: 재검토일/서명/비고 (id=bot-table-*)
           const botTable = sheet.querySelector(`table[id^="bot-table-"]`);
-          const botTbody = sheet.querySelector(`tbody[id^="bot-tbody-"]`);
+          if(!botTable) return;
+          if(!hasMidTable){
+            botTable.insertAdjacentHTML('beforebegin', _midTableHtml(pid));
+            innerChanged = true;
+          }
+          if(!hasBot3Table){
+            botTable.insertAdjacentHTML('beforebegin', _bot3TableHtml(pid));
+            innerChanged = true;
+          }
+        });
+        if(innerChanged) html = tmp.innerHTML;
+      }
 
-          // 표2 HTML 생성
-          const midTableHtml = `
-  <!-- ② 중단: 검사중단날짜/중단사유/새 검사법 -->
+      page.html = html; // 메모리만 업데이트
+    });
+  });
+}
+
+function _midTableHtml(pid){
+  return `
   <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none" data-migrated="mid">
     <tr>
       <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">검사중단 날짜</th>
@@ -4535,10 +4568,10 @@ function migrateExistingPages(){
           style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
     </tr>
   </table>`;
+}
 
-          // 표3 HTML 생성
-          const bot3TableHtml = `
-  <!-- ③ 파트장/전문의/기타사항 -->
+function _bot3TableHtml(pid){
+  return `
   <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none" data-migrated="bot3">
     <tr>
       <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">파트장 서명</th>
@@ -4560,39 +4593,6 @@ function migrateExistingPages(){
           style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
     </tr>
   </table>`;
-
-          // botTable 앞에 표2/표3 삽입
-          if(botTable){
-            if(!hasMidTable){
-              botTable.insertAdjacentHTML('beforebegin', midTableHtml);
-              changed = true;
-            }
-            if(!hasBot3Table){
-              // 표3은 표2 뒤, botTable 앞
-              botTable.insertAdjacentHTML('beforebegin', bot3TableHtml);
-              changed = true;
-            }
-          }
-        });
-
-        if(changed){
-          html = tmp.innerHTML;
-        }
-      }
-
-      if(html !== page.html){
-        page.html = html;
-        changed = true;
-      }
-    });
-  });
-
-  if(changed){
-    // Firebase에 반영 (자동 저장)
-    saveState();
-    if(window.fbSaveContent) window.fbSaveContent().catch(e=>console.warn('마이그레이션 FB 저장 오류:',e));
-    console.log('✅ 기존 서명 시트 마이그레이션 완료');
-  }
 }
 
 // ═══════════════════════════════════════════════════════
