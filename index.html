@@ -71,9 +71,10 @@
   };
 
   // ── 컬렉션/문서 경로 ──────────────────────────────────
-  const SIGNS_COL = "poct_signatures";
-  const META_DOC  = doc(db,"poct_meta","main");
-  const PAGES_COL = "poct_pages";
+  const SIGNS_COL      = "poct_signatures";
+  const META_DOC       = doc(db,"poct_meta","main");
+  const PAGES_COL      = "poct_pages";
+  const SIGNSHEETS_COL = "poct_signsheets";   // ★ 새 서명 시트 데이터
 
   // ═══════════════════════════════════════
   // 서명 관련
@@ -95,15 +96,13 @@
   };
 
   window.fbStartSignSync = function(){
+    // 구버전 S.signatures 동기화 (관리자 통계용으로만 유지)
     const q = query(collection(db, SIGNS_COL), orderBy("date","asc"));
     onSnapshot(q, (snapshot) => {
       const fbSigs = [];
       snapshot.forEach(d => fbSigs.push({ ...d.data(), fbId: d.id }));
       if(typeof S !== 'undefined'){
         S.signatures = fbSigs;
-        if(typeof renderSignHistory === 'function') renderSignHistory();
-        if(typeof renderViewerPages === 'function') renderViewerPages();
-        if(typeof updateSidebarProgress === 'function') updateSidebarProgress();
         if(typeof isAdminLoggedIn !== 'undefined' && isAdminLoggedIn && typeof renderAdminStats === 'function') renderAdminStats();
       }
     });
@@ -221,6 +220,8 @@
 
       // localStorage 동기화
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){}
+      // ★ signSheets 로드
+      if(typeof S !== 'undefined' && !S.signSheets) S.signSheets = {};
       console.log('FB 로드 완료:', meta.updatedAt, '저장자:', meta.updatedBy);
       return true;
     } catch(e){ console.error('FB 로드 오류:', e); return false; }
@@ -271,10 +272,47 @@
   // ═══════════════════════════════════════
   // 앱 시작 초기화
   // ═══════════════════════════════════════
+  // ═══════════════════════════════════════
+  // 서명 시트 데이터 (poct_signsheets)
+  // ═══════════════════════════════════════
+  // pageId별로 서명 시트 데이터를 저장: {topSigns:{}, midRows:[], botRows:[]}
+  window.fbSaveSignSheet = async function(pageId, sheetData){
+    try{
+      await setDoc(doc(db, SIGNSHEETS_COL, pageId), {
+        pageId,
+        ...sheetData,
+        updatedAt: new Date().toISOString()
+      });
+    } catch(e){ console.error('FB SignSheet 저장 오류:', pageId, e); }
+  };
+
+  window.fbLoadAllSignSheets = async function(){
+    try{
+      const snaps = await getDocs(collection(db, SIGNSHEETS_COL));
+      const result = {};
+      snaps.forEach(d=>{ result[d.id] = d.data(); });
+      return result;
+    } catch(e){ console.error('FB SignSheet 로드 오류:', e); return {}; }
+  };
+
+  window.fbDeleteSignSheet = async function(pageId){
+    try{ await deleteDoc(doc(db, SIGNSHEETS_COL, pageId)); }
+    catch(e){ console.error('FB SignSheet 삭제 오류:', pageId, e); }
+  };
+
   window.fbStartSync = async function(){
     if(typeof toast === 'function') toast('☁️ 지침서를 불러오는 중...', 'info');
     const loaded = await window.fbLoadContent();
+    // ★ 서명 시트 데이터 병렬 로드
+    if(window.fbLoadAllSignSheets){
+      window.fbLoadAllSignSheets().then(sheets=>{
+        if(typeof S !== 'undefined') S.signSheets = sheets || {};
+        if(typeof renderViewerPages === 'function') renderViewerPages();
+      });
+    }
     if(loaded){
+      // ★ 런타임 마이그레이션: 기존 페이지 HTML 자동 수정
+      if(typeof migrateExistingPages === 'function') migrateExistingPages();
       if(typeof renderAll === 'function') renderAll();
       if(typeof renderDocInfo === 'function') renderDocInfo();
       if(typeof toast === 'function') toast('✅ 지침서 로드 완료', 'success');
@@ -381,8 +419,8 @@ textarea{resize:vertical}
 .doc-hdr{background:linear-gradient(135deg,#003D2B,var(--navy2));color:#fff;border-radius:var(--radius2);padding:20px 24px;margin-bottom:16px;box-shadow:var(--shadow)}
 .doc-hdr h1{font-size:20px;font-weight:700;margin-bottom:5px}
 .doc-hdr p{font-size:12px;opacity:.8}
-.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%}
-.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:visible;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
+.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:hidden}
+.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
 .a4-page p{margin:0 0 9px;line-height:1.75;font-size:10.5pt;}
 /* 제목 계층 */
@@ -420,7 +458,7 @@ textarea{resize:vertical}
 .a4-page[contenteditable=true]{outline:2px solid var(--navy2);outline-offset:2px}
 .edit-mode-bar{background:var(--navy2);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
 .page-edit-badge{position:absolute;top:8px;right:8px;background:var(--gold);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
-.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center}
+.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center;overflow:hidden}
 .page-controls{display:flex;gap:6px;margin-bottom:8px;justify-content:center;width:210mm}
 /* 서명 페이지 임베드 스타일 */
 .page-sign-section{background:#EAF7F0;border:2px solid var(--navy2);border-radius:var(--radius);padding:14px;margin-top:16px;font-size:10pt}
@@ -565,6 +603,30 @@ canvas{display:block;cursor:crosshair;touch-action:none}
     min-height:auto!important; box-sizing:border-box!important;
   }
   body[data-print="history"] .btn { display:none!important; }
+
+  /* ── 페이지별 인쇄 ── */
+  body[data-print="page"] #tab-viewer { display:block!important; }
+  body[data-print="page"] #tab-viewer .doc-viewer { background:#fff!important; padding:0!important; }
+  body[data-print="page"] .a4-page-wrap { display:none!important; }
+  body[data-print="page"] .a4-page-wrap[data-print-target="1"] { display:block!important; page-break-after:always; break-after:page; }
+  body[data-print="page"] .a4-page {
+    box-shadow:none!important; margin:0!important;
+    width:210mm!important; padding:15mm 18mm!important;
+    min-height:auto!important; box-sizing:border-box!important;
+  }
+
+  /* ── 공통 UI 숨김 ── */
+  body[data-print] .topbar,
+  body[data-print] #global-search-bar,
+  body[data-print] .sidebar,
+  body[data-print] #mobile-nav,
+  body[data-print] #mobile-toc-screen,
+  body[data-print] .page-controls,
+  body[data-print] #sign-section,
+  body[data-print] .sign-area,
+  body[data-print] .page-sign-section .btn,
+  body[data-print] .edit-mode-bar,
+  body[data-print] #toast-container { display:none!important; }
 }
 
 /* ── 모바일 최적화 ── */
@@ -909,6 +971,16 @@ table img{ max-width:100%; height:auto; }
   .tbl .btn{ padding:2px 6px!important; font-size:10px!important; }
 }
 
+/* ── 새 서명 시트 스타일 ── */
+.new-sign-sheet table{ border-collapse:collapse; }
+.new-sign-sheet table + table{ border-top:none; }
+.top-sign-cell{ cursor:pointer; transition:background .15s; }
+.top-sign-cell:hover{ background:#f0faf6 !important; }
+.top-sign-cell:hover .top-sign-hint{ color:#00583F !important; }
+[contenteditable]:focus{ background:#f0faf6 !important; outline:2px solid var(--navy2) !important; }
+#topSign-modal input[type=text],
+#topSign-modal input[type=date]{ width:100%; }
+
 /* ── 강조 블록 스타일 ── */
 .hl-gray{
   background:#f5f5f5; border-left:4px solid #9e9e9e;
@@ -1090,7 +1162,17 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <button onclick="clearPcSearch()" id="pc-search-clear" style="display:none;background:transparent;border:none;color:#1a4a33;padding:0 8px;cursor:pointer;font-size:14px">✕</button>
     </div>
     <span id="topbar-username" style="font-size:12px;color:#1a3a2a;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,88,63,.3);background:rgba(255,255,255,.5);"></span>
-    <button onclick="printViewer()" title="지침서 인쇄" style="background:rgba(255,255,255,.5);border:1px solid rgba(0,88,63,.3);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;color:#1a3a2a;font-family:inherit;font-weight:600">🖨️</button>
+    <!-- 인쇄 드롭다운 -->
+    <div style="position:relative" id="print-menu-wrap">
+      <button onclick="togglePrintMenu()" title="인쇄" style="background:rgba(255,255,255,.5);border:1px solid rgba(0,88,63,.3);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;color:#1a3a2a;font-family:inherit;font-weight:600">🖨️</button>
+      <div id="print-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:200px;z-index:9999;overflow:hidden">
+        <div style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--navy);background:var(--navy3);border-bottom:1px solid var(--border)">인쇄 범위 선택</div>
+        <button onclick="printRoom();closePrintMenu()" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;font-size:13px;font-family:inherit;cursor:pointer;color:var(--text)" onmouseover="this.style.background='var(--navy3)'" onmouseout="this.style.background='none'">📋 현재 지침서 전체 인쇄</button>
+        <div style="height:1px;background:var(--border);margin:0 12px"></div>
+        <div style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--muted)">페이지별 인쇄</div>
+        <div id="print-page-list" style="max-height:260px;overflow-y:auto"></div>
+      </div>
+    </div>
     <input type="file" id="quick-import-file" accept=".json" style="display:none" onchange="quickImport(this)">
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
       <div class="topbar-info" id="topbar-doc-info">
@@ -1144,47 +1226,31 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <div class="sign-area">
         <h3>✏️ 검토 확인 및 서명</h3>
         <div id="sign-alert"></div>
-        <div class="alert alert-info" style="font-size:13px">각 지침서 페이지의 서명란에서 직접 서명하실 수 있습니다. 관리자가 서명란을 지정한 페이지 하단에 <strong>[✍️ 서명하기]</strong> 버튼이 나타납니다.</div>
         <div class="chk-row">
           <input type="checkbox" id="chk-read" onchange="toggleSign()">
-          <label for="chk-read">본 지침서의 전체 내용을 열람하고 숙지하였습니다. 아래 정보를 입력하고 서명할 페이지를 선택하세요.</label>
+          <label for="chk-read">본 지침서의 전체 내용을 열람하고 숙지하였습니다. 아래 정보를 입력하고 서명하세요.</label>
         </div>
         <div id="sign-form" style="display:none;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:8px">
-          <div class="form-grid">
-            <div class="fg"><label>성명 <span class="req">*</span></label><input type="text" id="s-name" placeholder="이름 입력"></div>
-            <div class="fg"><label>직위/직책 <span class="req">*</span></label>
-              <select id="s-role">
-                <option value="">선택하세요</option>
-                <option>임상병리사</option><option>파트장</option><option>팀장</option>
-                <option>전문의</option><option>과장</option><option>간호사</option><option>기타</option>
-              </select>
-            </div>
-            <div class="fg"><label>서명일</label><input type="date" id="s-date"></div>
-            <div class="fg"><label>소속 부서</label><input type="text" id="s-dept" value="진단검사의학과" placeholder="예: 진단검사의학과"></div>
-          </div>
-          <div class="fg"><label>서명할 페이지 선택</label>
+          <div id="sign-page-select-wrap" class="fg" style="display:none">
+            <label style="font-weight:700;color:var(--navy)">서명할 지침서 선택 <span class="req">*</span></label>
             <div id="sign-page-selector" class="sign-page-selector"></div>
           </div>
-          <div class="fg"><label>🖊️ 손서명 (마우스 또는 터치로 서명)</label>
-            <div class="canvas-sign-wrap"><canvas id="sign-canvas" width="560" height="100"></canvas></div>
-            <div class="flex"><button class="btn btn-xs" onclick="clearCanvas('sign-canvas')">🗑️ 서명 지우기</button></div>
+          <div class="form-grid">
+            <div class="fg"><label>성명 <span class="req">*</span></label><input type="text" id="s-name" placeholder="이름 입력"></div>
+            <div class="fg"><label>서명일</label><input type="date" id="s-date"></div>
           </div>
-          <div class="fg"><label>비고</label><input type="text" id="s-remark" value="지침서 검토" placeholder="예: 지침서 검토"></div>
+          <div class="fg"><label>비고</label><input type="text" id="s-remark" placeholder="예: 지침서 검토 완료"></div>
+          <div class="fg">
+            <label>손글씨 서명 <span style="font-size:11px;font-weight:400;color:var(--muted)">(아래 박스에 서명하세요)</span></label>
+            <div style="border:2px dashed var(--border2);border-radius:6px;background:#fafafa;position:relative;touch-action:none">
+              <canvas id="s-sign-canvas" width="600" height="120" style="display:block;width:100%;height:120px;cursor:crosshair;touch-action:none"></canvas>
+              <button onclick="clearCanvas('s-sign-canvas')" style="position:absolute;top:6px;right:8px;background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--muted)">지우기</button>
+            </div>
+          </div>
           <div class="flex-end">
             <button class="btn" onclick="toggleSign();document.getElementById('chk-read').checked=false">취소</button>
             <button class="btn btn-primary" onclick="submitSign()">✅ 서명 완료</button>
           </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:14px;border-radius:var(--radius2)">
-        <div class="card-title flex-between"><span>📋 재검토 서명 이력</span>
-          
-        </div>
-        <div class="tbl-wrap">
-          <table class="tbl">
-            <thead><tr><th>재검토일</th><th>성명</th><th>직위</th><th>소속</th><th>서명페이지</th><th>서명</th><th>비고</th><th>관리</th></tr></thead>
-            <tbody id="hist-tbody"><tr><td colspan="8" class="empty">서명 이력 없음</td></tr></tbody>
-          </table>
         </div>
       </div>
     </div>
@@ -1467,7 +1533,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 
         <!-- 탭1: 페이지 지정 -->
         <div id="admin-sign-tab-select" class="tab-panel active">
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">서명란을 표시할 페이지를 지침서별로 지정합니다. 선택된 페이지 하단에 [✍️ 서명하기] 버튼과 누적 서명 현황이 표시됩니다.</p>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">서명란 페이지를 지침서별로 지정합니다. 선택된 페이지에서 하단 "검토 확인 및 서명" 폼으로 서명하면 해당 서명 시트 표4에 자동 누적됩니다.</p>
           <div id="sign-page-settings"></div>
           <div class="flex-end"><button class="btn btn-primary" onclick="saveSignPageSettings()">💾 설정 저장</button></div>
         </div>
@@ -1714,6 +1780,30 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 </div>
 
 <!-- 페이지 서명 모달 -->
+<!-- ★ 새 서명 시트 - 상단 셀 직접입력 팝업 -->
+<div class="modal-overlay" id="topSign-modal">
+  <div class="modal" style="width:380px">
+    <h2 id="topSign-modal-title" style="font-size:15px;margin-bottom:14px">✍️ 서명 입력</h2>
+    <input type="hidden" id="topSign-pageId">
+    <input type="hidden" id="topSign-field">
+    <!-- 이름+날짜 입력 (서명 필드용) -->
+    <div id="topSign-name-wrap" class="fg"><label>이름 <span class="req">*</span></label>
+      <input type="text" id="topSign-name" placeholder="이름 입력">
+    </div>
+    <div id="topSign-date-wrap" class="fg"><label>날짜</label>
+      <input type="date" id="topSign-date">
+    </div>
+    <!-- 날짜만 입력 (검사시작 날짜용) -->
+    <div id="topSign-startdate-wrap" class="fg" style="display:none"><label>검사시작 날짜 <span class="req">*</span></label>
+      <input type="date" id="topSign-startdate-val">
+    </div>
+    <div class="flex-end" style="margin-top:14px">
+      <button class="btn" onclick="closeModal('topSign-modal')">취소</button>
+      <button class="btn btn-primary" onclick="submitTopSign()">✅ 입력 완료</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="pagesign-modal">
   <div class="modal" style="width:540px">
     <h2 id="pagesign-modal-title">✍️ 서명</h2>
@@ -1850,6 +1940,8 @@ function getDefaultState(){
     officialChanges:[],
     // 서명란 표시 페이지 설정: {roomId: [pageId,...]}
     signPageConfig: {},
+    // ★ 새 서명 시트 데이터: {pageId: {topSigns:{}, midRows:[], bot3Rows:[], botRows:[]}}
+    signSheets: {},
     adminLoggedIn: false,
     adminUsers: ['권희정','오세진'],
     currentUser: ''
@@ -1904,12 +1996,12 @@ function getDefaultRooms_REMOVED2(){
         {id:'pr5',title:'Troponin T (POCT) (L8441)',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">Troponin T (POCT) (L8441)</h2><h3>1. 검사명 : Troponin T (POCT)</h3><h3>2. 검사원리</h3><p>검사 스트립은 cardiac troponin T(cTnT)에 특이적인 두 단클론 항체를 포함한다. 하나는 금으로 표지되어 있고, 다른 하나는 비오틴이 결합되어 있다. 두개의 단클론 항체는 혈액의 cTnT와 샌드위치 복합체를 형성한다. 검체에서 적혈구 제거 후, 혈장이 측정 부위로 들어가면 금으로 표지된 cTnT 샌드위치 복합체가 검출부에 축적되고 양성 신호가 붉은색 선(signal line)으로 표시된다. cTnT와 결합하지 않은 과량의 금으로 표지된 항체가 대조선(control line)을 형성한다. 고해상도의 CMOS 카메라가 형성된 금표지자를 인식하며, signal line의 intensity는 cTnT 농도에 따라 증가한다. 내장되어 있는 프로그램이 signal intensity를 정성 결과값으로 표현한다.</p><h3>3. 검사목적</h3><p>Troponin T (POCT) 검사는 면역분석법을 이용하여 cardiac troponin T를 측정한다.</p><h3>4. 검체</h3><p>1) 검체 : 헤파린 처리된 정맥 전혈 만이 사용될 수 있다. 다른 항응고제, 모세혈, 혈청 또는 혈장은 사용 불가하다.<br>2) 채취 용기 : Heparin Syringe (EDTA, citrate, sodium fluoride를 포함하거나 다른 첨가물이 있는 혈액 채집 튜브는 사용할 수 없다)<br>3) 준비 : 환자를 안정시키고 보통 호흡을 유지시키며 채혈한다.<br>4) 검체는 실온 상태에서 8시간 동안 안정하다. 검체를 냉장 또는 냉동시키지 않는다.<br>5) 검체량 : 150 μL 이상</p><h3>5. 시약</h3><p>1) 제조원 : Roche<br>2) 판매원 : 메디탑<br>3) 준비 : 10회 검사를 위한 일 회용 로슈 카디악 Troponin T 검사지, REF 04877772190</p><h3>6. Calibration</h3><p>1) Calibration 물질 : 각 LOT의 검사지는 로슈의 Elecsys Troponin T 분석법으로 calibration 되었다.<br>2) Calibration 주기 : cobas h 232 기기는 자동으로 LOT별 calibration 데이터를 코드칩으로부터 가져오기 때문에 사용자가 calibration 할 필요가 없다.</p><h3>7. 검사 장비 : Cobas h 232</h3><h3>8. 정도 관리</h3><p>1) 정도 관리 물질 : Roche CARDIAC Control Troponin T quality control, REF 04890515190<br>2) 정도관리 방법 : 일일 일회 정해진 시간에 로슈 카디악 컨트롤 Troponin T Level 1, 2 물질을 사용하여 정도관리를 수행한다.<br>3) 결과: 허용범위를 벗어나면 재검하여 확인하고, 그래도 벗어난다면 장비 및 컨트롤 물질을 점검한다.</p><h3>9. 검사 방법</h3><p>1) 환자 혈액 샘플채취 (Heparin tube 1mL 이상)<br>2) 장비화면의 'Patient test'를 터치하여 검사를 진행합니다.<br>3) Strip을 장비에 넣고 워밍업 시간 동안 기다립니다.<br>4) 화면에 혈액을 분주하라는 표시가 나오면, 혈액을 분주합니다.<br>5) 혈액은 1mL 주사기를 이용하여 0.15mL(150 uL)를 분주합니다.<br>6) 혈액 분주가 끝나면 체크 버튼을 누릅니다.<br>7) 약 12분 후에 결과를 확인합니다.<br>8) 인터페이스를 통한 결과 전송은 스트립을 제거하면 시작됩니다.</p><h3>10. 결과 보고</h3><p>측정범위: 0.04 ng/mL – 2.0 ng/mL</p><table><tr><th>결과 및 단위(ng/mL)</th><th>결과 해석 기준</th></tr><tr><td>&lt;0.04</td><td>AMI not likely, but still possible. Repeat test 3-6hrs</td></tr><tr><td>0.04 – 0.1 (정량값으로 보고)</td><td>AMI possible, repeat test</td></tr><tr><td>0.11 – 2.0 (정량값으로 보고)</td><td>AMI likely</td></tr><tr><td>&gt;2.0</td><td>AMI very likely</td></tr></table><h3>참고 문헌</h3><p>1) Roche cobas h 232 Troponin T 시약설명서</p>`},
         {id:'pr5s',title:'Troponin T 서명란',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">Troponin T (POCT) (L8441)</h2><table style="width:100%;border-collapse:collapse;font-size:10pt"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">작성자 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">파트장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">전문의 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">과장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">검사시작 날짜</th></tr><tr><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:6px 10px;border:1px solid #B8D4C4">2019.02.07</td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">재검토일</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">비고(주요 변경 사항 등)</th></tr><tr><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td></tr></table>`},
         {id:'pr6',title:'ABGA NOVA Phox ultra (L8430,L8431,L8447,L8448)',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">ABGA (NOVA Phox ultra) (L8430,L8431,L8447,L8448)</h2><h3>1. 검사명 : ABGA, Electro, Ca, Glucose, Lactate NOVA (arterial, vein)</h3><h3>2. 검사원리</h3><p><strong>1) pH:</strong> 2개의 전극 사용(KCl or Reference, glass sensor). Reference sensor가 일정한 전압을 유지하는 동안 pH sensor 상의 glass membrane이 혈액 중 수소 이온을 선택적으로 투과시킨 후 농도의 전위차를 읽어내어 pH 수치로 환산해 결과를 나타낸다.</p><p><strong>2) pCO2:</strong> Severinghaus sensor 사용. 혈액에서 membrane을 통과한 CO2가 전해질 용액에 의해 Nylon Net으로 이동한 다음 용해된다. H2O + CO2 ↔ H2CO3 ↔ H+ + HCO3-. H+가 glass membrane을 통과하면서 전위차 발생. Henderson-Hasselbalch equation에 적용하면 검체 내의 pCO2와 비례.</p><p><strong>3) pO2:</strong> Polarographic Clark oxygen electrode 사용. 산화 백금선의 음극에 환원 작용하여 전류 발생. Cathode: O2 + 2H2O + 4e- → 4OH-. Anode: 4Ag → 4Ag+ + 4e-</p><p><strong>4) tHb, SO2%, O2Hb, COHb, MetHb, HHb:</strong> Optical system 이용. 검체와 시약이 reaction cuvette으로 들어가면 초음파로 적혈구를 용혈시킨 다음, 128파장(478~672nm)에서 흡광도를 측정하는데, 이 curve의 면적은 각 Hb농도에 비례한다.</p><p><strong>5) Electrolyte:</strong> Na, K, Cl, iCa, iMg 등은 ISE(ion selective electrode)를 이용한다.</p><p><strong>6) Chemistry:</strong> Glucose, Lactate, BUN - 각 sensor의 membrane 상에 enzyme이 존재해 각각의 소물질로 해리되고 이때 발생된 이온의 전위차로 각 물질의 농도가 계산된다.</p><h3>3. 검사목적</h3><p>동맥혈 가스 분석은 폐의 가스 교환 능력을 알아보는 가장 주된 방법이며 중환자를 평가하고 관리하는데 가장 기본적으로 이용하는 검사이다.</p><h3>4. 검체</h3><p>1) 채혈 (CLSI 권장사항 C46-A &amp; H11-A4 참조) - 플라스틱 주사기: 채혈 후 30분 내에 측정<br>2) 채취 용기 : Na or Li Heparin Syringe (Li heparin 권장)<br>3) 검체량 : 0.5mL 이상(검사 소요량: Syringe 200µL)</p><h3>5. 시약</h3><p>1) 제조원 : NOVA㈜<br>2) 판매원 : 동방피오씨<br>3) Phox ultra 시약은 Calibrator pack으로 상온 보관. Calibrator pack 내부에 Flush solution, Calibration (A,B,C,D) solution으로 구성. SO2의 Calibration은 별도의 ampule 사용. Control: ABGA 3 level, Chemistry 2 level. Auto Q.C pack은 냉장 보관.</p><h3>6. Calibration</h3><p>1) 자동 Calibration 주기: ① 1 point cal: 매 30분마다 또는 매 검체마다 ② 2 point cal: 매 120분마다<br>2) Manual calibration 필요 경우: control값 허용범위 이탈 / 새로운 lot 시약 교체 / 기기 maintenance 후 / sensor 교체 후<br>3) SO2% calibration: SO2 Calibrator ampule 이용</p><h3>7. 검사 장비 : NOVA Phox ultra</h3><h3>8. 정도 관리</h3><p>물질: ABGA AutoQC pack + Chemistry AutoQC pack, Ampules<br>자동 실행: 8시간마다 Level별로 1-2회 이상 시행<br>수동 실행: 기기 maintenance 후 또는 electrode 교체 후</p><h3>9. 검사 방법</h3><p>1) 검체를 충분히 혼합, 처음 한 두 방울은 짜버린다.<br>2) 장비 화면이 "Ready" 상태인지 확인 후 "analyze" 버튼을 누른다.<br>3) probe(검체흡입구)가 나온다.<br>4) 검체를 흡입구에 꽂은 다음 "aspirate" 버튼을 누른다.<br>5) 화면에 "Remove sample"이 나오면 검체를 빼고 "continue" 버튼을 누른다. 약 1-2분 후 결과가 나타난다.<br>6) 화면에 나온 결과를 출력하거나 LIS/HIS로 전송되었는지 확인한다.</p><h3>10. 결과 보고</h3><p>참고범위: pH 7.35-7.45 / pCO2 35-45 mmHg / pO2 83-108 mmHg / HCO3- 22-26 mmol/L / B.E. (-2)-(+2) mmol/L / SO2% 95-100%</p><h3>14. 참고 사항 - 간섭 물질</h3><table><tr><th>물질</th><th>간섭 작용</th></tr><tr><td>Halothane(anesthetic)</td><td>pO2 결과에 영향</td></tr><tr><td>Lipid therapy, protamine Sulphate</td><td>OXI 측정에 영향. 측정 후 반드시 Cleaning program으로 세정</td></tr><tr><td>Methylene Blue, HiCN</td><td>OXI 측정에 영향</td></tr><tr><td>Anticoagulants(Sodium salts)</td><td>높은 NA+ 결과값 유도</td></tr></table><h3>15. 참고 문헌</h3><p>1) Henry, J.B. et al.: Clinical Diagnosis and Management by Laboratory Methods, 17th ed. 1983.<br>2) CLSI guideline C46-A &amp; H11-A4<br>3) Nova pHOx Ultra Operator's Manual &amp; Reference Manual</p>`},
-        {id:'pr6s',title:'ABGA NOVA Phox ultra 서명란',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">ABGA (NOVA Phox ultra) (L8430,L8431,L8447,L8448)</h2><table style="width:100%;border-collapse:collapse;font-size:10pt"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">작성자 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">파트장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">전문의 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">과장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">검사시작 날짜</th></tr><tr><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:6px 10px;border:1px solid #B8D4C4">2019.02.07</td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">재검토일</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">비고(주요 변경 사항 등)</th></tr><tr><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td></tr></table>`},
+        {id:'pr6s',title:'ABGA NOVA Phox ultra 서명란',html:buildNewSignSheetHtml('ABGA (NOVA Phox ultra) (L8430,L8431,L8447,L8448)','pr6s','2019.02.07')},
         {id:'pr7',title:'ACT (Activated Clotting Time) (L8443, L8444)',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">ACT (Activated Clotting Time) (L8443, L8444)</h2><h3>1. 검사명 : ACT(Activated Clotting Time) - open heart surgery, ECMO</h3><h3>2. 검사원리 : OCPC method</h3><p>혈액을 포함한 카트리지가 삽입되면 우선 Calibrant 및 시약으로 Reference 저항을 측정한 뒤 혈액을 돌려 혈액의 저항을 측정한다. 결과 값은 reference와 혈액의 전위차를 측정하여 수치로 나타낸다.</p><h3>3. 검사목적</h3><p>고용량 헤파린 항응고 요법의 적절성을 모니터링하기 위해 주로 사용되는 응고검사로 헤파린 최초 주입(대량주입) 후, 그리고 개심술이나 기타 고농도의 항응고요법이 필요한 다른 시술을 시작하기 전에 시행. 수술 중에 활성화응고시간은 안정된 헤파린 항응고 수준을 획득하고 유지시키기 위해 시간간격을 두고 연속적으로 측정 할 수 있다.</p><p>ACT 검사 적응증: Cardiac catheterization / Percutaneous transluminal coronary angioplasty (PTCA) / Renal dialysis / Hemodialysis / Extra-corporeal circulation during bypass</p><h3>4. 검체</h3><p>1) 검체채취에 관한 제반 사항은 현장검사 운영지침을 준수한다.<br>2) 검체 채취에서 결과보고까지 검사의 모든 단계에서 검체가 바뀌지 않도록 지속적으로 주의하고 성상을 확인하면서 검사를 시행한다.<br>3) 현장에서 시행되는 모든 검체는 환자이름, 등록번호 등이 표기된 바코드가 부착되어 있는 것을 원칙으로 한다. 즉시 채취해서 검사를 시행할 경우는 장비에 환자등록번호를 정확히 입력하고 검체에 환자 인적 스티커를 부착해서 재차 확인한다.<br>※ 채혈 전 반드시 "환자 팔찌", "환자 침대의 이름표"를 보고 직접 "이름"을 물어 신원을 확인하고 "출력된 검사 바코드와 비교"하여 일치하는지 확인 후 채혈해야 한다.<br>4) 검체 채취 방법: plastic 주사기에 채혈한 후 주사기 끝을 막아 공기와의 접촉을 최소화시켜야 한다.<br>5) 부적합검체의 기준: 응고된 검체</p><h3>5. 시약</h3><p>시약에는 반드시 내용물, 저장 및 보관 조건, 제조 혹은 입고일, 현재 해당 장소에 놓은 날짜/개봉일, 유효기간이 표기되어 있어야 한다.</p><p>① i-STAT - 보관: i-STAT 카트리지는 냉장보관(2~8℃). 실온 방치 시 카트리지 박스에 표기된 기간 동안 사용 가능. - 준비: 사용 전 냉장고에서 꺼내어 5분간의 활성화 시간 가짐.</p><h3>6. Calibration</h3><table><tr><th>장비명</th><th>Calibration 주기</th><th>control 주기</th></tr><tr><td>i-STAT</td><td>매 검사시마다 자동 시행</td><td>8시간마다 Internal Simulator QC 작동. 8시간 후 sample 넣게 되면 QC 먼저 자동실행 (Electronic High/Low level control 실행)</td></tr></table><h3>7. 검사 장비 : i-STAT Analyzer</h3><h3>8. 정도 관리</h3><p>1) 정도 관리 물질 : Electronic Simulator(Internal Simulator, External simulator)<br>2) Internal simulator는 자동적으로 8시간마다 작동하도록 세팅이 되어 있다. PASS or FAIL로 나타난다. FAIL일 경우 재검사를 시행하며 연속으로 3회 이상 FAIL 발생시 공급업체에 연락한다.</p><h3>9. 검사 방법</h3><p>1) 장비의 전원을 ON합니다.<br>2) Test Menu에서 i-STAT Cartridge를 선택합니다.<br>3) Operator ID와 Patient ID를 입력합니다.<br>4) 카트리지 Lot 바코드를 입력하라고 나오면 바코드를 스캔합니다.<br>5) 카트리지를 혈액으로 채웁니다.<br>6) 카트리지의 뚜껑을 닫고 수평을 유지한 채 천천히 장비에 삽입합니다.<br>7) 결과를 확인하고 프린트한 후 EMR로 전송합니다.</p><h3>11. 결과 보고</h3><table><tr><th>장비</th><th>검사코드</th><th>검사항목</th><th>Reportable range</th><th>Reference range</th><th>Critical Value</th><th>단위</th></tr><tr><td>i-STAT</td><td>L8443, L8444</td><td>ACT</td><td>50-1000</td><td>74-137</td><td></td><td>Seconds</td></tr></table><h3>14. 참고 문헌</h3><p>1) Cartridge Test Information (Abbott Point Of Care INC)</p>`},
-        {id:'pr7s',title:'ACT 서명란',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">ACT (Activated Clotting Time) (L8443, L8444)</h2><table style="width:100%;border-collapse:collapse;font-size:10pt"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">작성자 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">파트장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">전문의 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">과장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">검사시작 날짜</th></tr><tr><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:6px 10px;border:1px solid #B8D4C4">2019.02.07</td></tr></table>`},
+        {id:'pr7s',title:'ACT 서명란',html:buildNewSignSheetHtml('ACT (Activated Clotting Time) (L8443, L8444)','pr7s','2019.02.07')},
         {id:'pr8',title:'ABGA, ABGA lactate, Chem8+ i-STAT (L8433, L8402, L8403)',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">ABGA, ABGA lactate, Chem8+ (L8433, L8402, L8403)</h2><h3>1. 검사명 : ABGA, ABGA lactate, Chem8+ i-STAT analyzer</h3><h3>2. 검사원리 : OCPC method</h3><p>i-STAT은 제조 시점에서 다중점 보정 곡선(multi-point calibration curve)을 설정되며, 검체 측정 시에는 one-point calibration을 통해 매 검체 측정마다 보정이 이루어진다. 혈액이 분주된 카트리지를 분석기에 삽입하면 첫 단계로 카트리지 내의 calibrant solution 및 내장된 시약이 센서 위로 자동 분주된다. 센서는 calibrant solution에 반응하여 전기적 신호를 생성하고, 생성된 신호를 분석기가 측정하여 기존에 저장된 보정 곡선을 조정한다.</p><h3>3. 검사목적</h3><p>동맥혈 가스 분석은 폐의 가스 교환 능력을 알아보는 가장 주된 방법이며 중환자를 평가하고 관리하는데 가장 기본적으로 이용하는 검사이다.</p><h3>4. 검체</h3><p>1) 검체 : Arterial Blood (Clot Sample 불가)<br>2) 채취 용기 : Heparine tube / Heparin Syringe<br>3) 검체량 : 일반적인 ABGA의 경우 95㎕가 필요로 하며 혈액 한 방울에서 세 방울이면 검사 가능</p><h3>5. 검체보관</h3><p>1) 동맥혈액가스(ABGA), 혈당(Glucose) PT-INR 등 채혈 즉시 검사해야 하는 검사는 현장에서 채혈과 동시에 검사하며, 검사가 완료된 검체는 현장검사 특성상 따로 보관하지 않는다.<br>2) 동맥혈 채혈 후 신속히 검사하지 못하는 경우: ① 반드시 검체를 밀봉하여 냉장 보관한 후 해당 검체를 최대한 신속히 검사한다. ② 장비이상 등으로 검사 지연 시는 타 부서에 설치된 기기를 이용하거나, 진단검사의학과 응급 처방으로 전환하여 검사실로 검사를 신속히 의뢰한다.</p><h3>6. 시약</h3><p>1) 제조원 : Abbott Point Of Care INC<br>2) 판매원 : (주) 피오씨 코리아<br>3) 준비 : G3+ (pH, pCO2, pO2, TCO, HCO, Beecf, sO2) cartridge / CG8+(pH, pCO2, pO2, TCO, HCO, Beecf, sO2, Na+, K+, iCa++, Glu, Hct, Hgb) cartridge<br>4) 보관 : i-STAT 카트리지는 항시 냉장보관(2~8℃). 검사 전 실온에 5분간 방치, 실온 방치 시 2주간 안정</p><h3>10. 검사 방법</h3><p>1) 환자에게서 혈액을 채취하여 i-STAT 카트리지에 2~3방울을 주입한 후 카트리지 덮개를 닫고 i-STAT 장비에 삽입을 하게 되면 검사가 진행이 된다.<br>2) 분석 시간 : Calibration을 포함해 120초 정도의 시간이 소요된다.</p><h3>11. 결과 보고 – 측정범위</h3><table><tr><th>검사항목</th><th>Reportable Range</th><th>Reference Range (Arterial)</th><th>Reference Range (Venous)</th></tr><tr><td>Glucose</td><td>20-700 mg/dL</td><td>70-105 mg/dL</td><td>70-105 mg/dL</td></tr><tr><td>Sodium (Na)</td><td>100-180 mmol/L</td><td>138-146 mmol/L</td><td>138-146 mmol/L</td></tr><tr><td>Potassium (K)</td><td>2.0-9.0 mmol/L</td><td>3.5-4.9 mmol/L</td><td>3.5-4.9 mmol/L</td></tr><tr><td>pH</td><td>6.5-8.2</td><td>7.35-7.45</td><td>7.31-7.41</td></tr><tr><td>pCO2</td><td>5-130 mmHg</td><td>35-45 mmHg</td><td>41-51 mmHg</td></tr><tr><td>PO2</td><td>5-800 mmHg</td><td>80-105 mmHg</td><td></td></tr><tr><td>HCO3 *</td><td>1-85 mmol/L</td><td>22-26 mmol/L</td><td>23-28 mmol/L</td></tr></table><h3>14. 참고 문헌</h3><p>1) Cartridge Test Information (Abbott Point Of Care INC)<br>2) 이귀녕, 김진규, 임상화학, 의학문화사, 1988</p>`},
-        {id:'pr8s',title:'ABGA i-STAT 서명란',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">Arterial Blood Gas Analysis (L8433, L8434, L8401)</h2><table style="width:100%;border-collapse:collapse;font-size:10pt"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">작성자 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">계장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">전문의 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">과장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">검사시작 날짜</th></tr><tr><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:6px 10px;border:1px solid #B8D4C4"></td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">재검토일</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">서명(계장 또는 전문의)</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">변경사항</th></tr><tr><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td></tr></table>`},
-        {id:'pr9',title:'전체 검사지침서 서명란',html:`<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">현장검사 검사 지침서</h2><table style="width:100%;border-collapse:collapse;font-size:10pt"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">작성자 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">파트장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">전문의 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">과장 서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">검사시작 날짜</th></tr><tr><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:18px 10px;border:1px solid #B8D4C4"></td><td style="padding:6px 10px;border:1px solid #B8D4C4"></td></tr></table><table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px"><tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">재검토일</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">서명(계장 또는 전문의)</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">변경사항</th></tr><tr><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td></tr></table>`}
+        {id:'pr8s',title:'ABGA i-STAT 서명란',html:buildNewSignSheetHtml('Arterial Blood Gas Analysis (L8433, L8434, L8401)','pr8s','')},
+        {id:'pr9',title:'전체 검사지침서 서명란',html:buildNewSignSheetHtml('현장검사 검사 지침서','pr9','')}
       ]
     }
   ];
@@ -1949,7 +2041,7 @@ function customConfirm(msg, onOk, icon='⚠️'){
   cancelBtn.onclick = ()=>{ close(); };
 }
 window.onload = function(){
-  initCanvasSign('sign-canvas');
+  if(document.getElementById('s-sign-canvas')) initCanvasSign('s-sign-canvas');
   renderAll();
   renderDocInfo();
   startAutoBackup();
@@ -1962,7 +2054,7 @@ window.onload = function(){
   window.addEventListener('beforeunload', function(e){
     if(!isAdminLoggedIn) return;
     // File System Access API 폴더 있으면 자동 저장 시도
-    if(FS_SUPPORT && _dirHandle){
+    if(FS_SAVE_OK && _dirHandle){
       quickSave(); // async지만 beforeunload에서 최선
     }
     e.preventDefault();
@@ -2025,6 +2117,9 @@ function updateUIForRole(){
   // 관리자 탭 버튼 관리자만 표시
   const adminBtn = document.getElementById('tnav-admin');
   if(adminBtn) adminBtn.style.display = isAdminLoggedIn ? '' : 'none';
+  // 수정이력 탭 로그인한 모든 사용자에게 표시
+  const histBtn = document.getElementById('tnav-history');
+  if(histBtn) histBtn.style.display = currentUser ? '' : 'none';
   // 저장하기/불러오기 버튼 모든 사용자 표시
   const saveBtn = document.getElementById('topbar-save-btn');
   if(saveBtn) saveBtn.style.display = 'flex';
@@ -2323,7 +2418,6 @@ function renderAll(){
   renderTOC();
   renderRoomList();
   renderPageList();
-  renderSignHistory();
   renderHistory();
   renderSignPageSelector();
   updateSidebarProgress();
@@ -2333,6 +2427,12 @@ function renderAll(){
     renderAdminHistory();
     setTimeout(()=>{ renderSignPageSettings(); }, 50);
   }
+  // ★ 새 서명 시트 일괄 초기화 (DOM 렌더 후)
+  setTimeout(()=>{
+    document.querySelectorAll('.new-sign-sheet[data-page-id]').forEach(el=>{
+      initSignSheet(el.dataset.pageId);
+    });
+  }, 150);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2346,6 +2446,8 @@ function showMainTab(id, btn){
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tnav').forEach(b=>b.classList.remove('active'));
+  const _mtoc = document.getElementById('mobile-toc-screen');
+  if(_mtoc) _mtoc.style.display = 'none';
   document.getElementById(id).classList.add('active');
   if(btn) btn.classList.add('active');
   // 모바일 하단 네비 active 상태 업데이트
@@ -2752,12 +2854,9 @@ function renderViewerPages(){
   const allNums = [];
 
   room.pages.forEach(page=>{
-    const hasSign = signPages.includes(page.id);
-    const pageSigs = S.signatures.filter(s=>s.pageId===page.id && (!s.room||s.room===room.name));
-
-    // 전체 HTML 파싱
+    // 전체 HTML 파싱 (구버전 makeSignSectionHtml 제거)
     const tmp = document.createElement('div');
-    tmp.innerHTML = page.html + (hasSign ? makeSignSectionHtml(page.id, pageSigs) : '');
+    tmp.innerHTML = page.html;
     const nodes = Array.from(tmp.childNodes);
 
     // 노드 → 그룹 분할
@@ -2768,9 +2867,11 @@ function renderViewerPages(){
       const isFirst = subIdx === 0;
       const wrap = document.createElement('div');
       wrap.className = 'a4-page-wrap';
+      wrap.dataset.pageId = page.id;
 
       const controlsHtml = `<div class="page-controls">
           <span style="font-size:11px;color:#666;flex:1">${page.title}${groups.length>1?' ('+(subIdx+1)+'/'+groups.length+')':''}</span>
+          <button class="btn btn-sm" onclick="printPage('${page.id}')" title="이 페이지만 인쇄">🖨️</button>
           <button class="btn btn-sm" onclick="openEditModal('${page.id}',${subIdx})">✏️ 편집</button>
           <button class="btn btn-sm btn-danger" onclick="deletePage('${page.id}')">🗑️ 삭제</button>
          </div>`;
@@ -2802,10 +2903,12 @@ function renderViewerPages(){
       allNums.push(numDiv);
 
       if(isFirst){
-        injectSignsIntoPageTables(page.id, pageSigs, room.name);
         setTimeout(()=>{
           initTableResize(document.getElementById('a4page_'+page.id));
-          renderEmbedSigns(page.id, pageSigs);
+          // ★ 새 서명 시트 초기화
+          if(document.querySelector(`.new-sign-sheet[data-page-id="${page.id}"]`)){
+            initSignSheet(page.id);
+          }
         }, 50);
       }
     });
@@ -2861,12 +2964,27 @@ function injectSignsIntoPageTables(pageId, sigs, roomName){
 // ═══════════════════════════════════════════════════════
 function renderSignPageSelector(){
   const room = currentRoom(); if(!room) return;
-  const el = document.getElementById('sign-page-selector'); if(!el) return;
+  const el   = document.getElementById('sign-page-selector'); if(!el) return;
+  const wrap = document.getElementById('sign-page-select-wrap');
   const signPages = (S.signPageConfig && S.signPageConfig[currentRoomId]) || [];
+
+  // 서명란 페이지가 없으면 선택 UI 숨김
   if(!signPages.length){
-    el.innerHTML = '<span style="font-size:12px;color:var(--muted)">관리자가 서명란 페이지를 설정하지 않았습니다.</span>';
+    el.innerHTML = '';
+    if(wrap) wrap.style.display = 'none';
     return;
   }
+
+  // 서명란 1개면 자동 선택 후 UI 숨김
+  if(signPages.length === 1){
+    const pid = signPages[0];
+    el.innerHTML = `<input type="checkbox" value="${pid}" name="sign-pages" checked style="display:none">`;
+    if(wrap) wrap.style.display = 'none';
+    return;
+  }
+
+  // 2개 이상이면 체크박스 목록 표시
+  if(wrap) wrap.style.display = '';
   el.innerHTML = signPages.map(pid=>{
     const pg = room.pages.find(p=>p.id===pid);
     if(!pg) return '';
@@ -3767,51 +3885,102 @@ function toggleSign(){
   const checked = document.getElementById('chk-read').checked;
   document.getElementById('sign-form').style.display = checked?'block':'none';
   if(checked){
+    document.getElementById('s-name').value = currentUser || '';
     document.getElementById('s-date').value = TODAY;
+    document.getElementById('s-remark').value = '지침서 검토 완료';
+    // 서명란 페이지 선택 UI 렌더링
     renderSignPageSelector();
+    // 캔버스 초기화 및 이벤트 바인딩
+    setTimeout(()=>{
+      clearCanvas('s-sign-canvas');
+      initCanvasSign('s-sign-canvas');
+    }, 50);
   }
 }
 
 function submitSign(){
-  const name = document.getElementById('s-name').value.trim();
-  const role = document.getElementById('s-role').value;
-  const date = document.getElementById('s-date').value;
-  const dept = document.getElementById('s-dept').value.trim() || '진단검사의학과';
-  const remark = document.getElementById('s-remark').value.trim() || '지침서 검토';
-  if(!name||!role){toast('성명과 직위를 입력하세요.','error');return;}
-  // 선택된 페이지들
-  const selectedPages = Array.from(document.querySelectorAll('input[name="sign-pages"]:checked')).map(cb=>cb.value);
-  if(!selectedPages.length){ toast('서명할 페이지를 최소 1개 선택하세요.','error'); return; }
-  const canvas = document.getElementById('sign-canvas');
-  const sigImg = canvas.toDataURL();
+  const name   = document.getElementById('s-name').value.trim();
+  const date   = document.getElementById('s-date').value || TODAY;
+  const remark = document.getElementById('s-remark').value.trim() || '지침서 검토 완료';
+  if(!name){ toast('성명을 입력하세요.','error'); return; }
+
   const room = currentRoom();
-  // 각 선택 페이지별로 서명 생성
-  selectedPages.forEach(pid=>{
-    const sig = {
-      id:'s_'+Date.now()+'_'+pid, name, role, dept,
-      room: room ? room.name : '',
-      pageId: pid,
-      date: date||TODAY, remark, sigImg
-    };
-    S.signatures.push(sig);
-    // Firestore에도 저장
-    if(window.fbSaveSign) window.fbSaveSign(sig);
-  });
-  addHistory('sign', name, name, role+' 서명 완료 ('+selectedPages.length+'개 페이지)');
-  saveState(); renderSignHistory(); renderViewerPages(); updateSidebarProgress();
-  if(isAdminLoggedIn) renderAdminStats();
-  document.getElementById('sign-form').style.display='none';
-  document.getElementById('chk-read').checked=false;
-  clearCanvas('sign-canvas');
-  toast('서명이 완료되었습니다.','success');
+  if(!room){ toast('지침서를 선택하세요.','error'); return; }
+
+  if(!S.signSheets) S.signSheets = {};
+
+  // 체크된 서명란 페이지만 대상으로
+  const checkedPids = Array.from(
+    document.querySelectorAll('#sign-page-selector input[name="sign-pages"]:checked')
+  ).map(el => el.value);
+
+  if(!checkedPids.length){
+    toast('서명할 지침서를 하나 이상 선택하세요.','warn'); return;
+  }
+
+  const signSheetPages = room.pages.filter(p => checkedPids.includes(p.id));
+
+  if(!signSheetPages.length){
+    toast('선택한 페이지를 찾을 수 없습니다.','error'); return;
+  }
+
+  // 캔버스 → Cloudinary 업로드 후 저장
+  const canvas = document.getElementById('s-sign-canvas');
+  const btn = document.querySelector('#sign-form .btn-primary');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
+
+  async function _doSave(sigImgUrl){
+    signSheetPages.forEach(sheetPage => {
+      const pid = sheetPage.id;
+      if(!S.signSheets[pid]) S.signSheets[pid] = {topSigns:{}, midRows:{}, bot3Rows:{}, botRows:[]};
+      if(!S.signSheets[pid].botRows) S.signSheets[pid].botRows = [];
+      S.signSheets[pid].botRows.push({
+        id: 'br_'+Date.now()+'_'+pid,
+        date, name, remark,
+        sigImg: sigImgUrl || ''
+      });
+      if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+      renderBotRows(pid);
+    });
+    addHistory('sign', room.name, name, '서명 완료');
+    saveState(); updateSidebarProgress();
+    if(isAdminLoggedIn) renderAdminStats();
+    document.getElementById('sign-form').style.display='none';
+    document.getElementById('chk-read').checked=false;
+    clearCanvas('s-sign-canvas');
+    if(btn){ btn.disabled=false; btn.textContent='✅ 서명 완료'; }
+    toast('✅ 서명이 완료되었습니다. 서명 시트 하단에 기록되었습니다.','success');
+  }
+
+  // 캔버스가 비어있으면 이미지 없이 저장
+  const isBlank = !canvas || isCanvasBlank(canvas);
+  if(isBlank){
+    _doSave('');
+    return;
+  }
+
+  // Cloudinary 업로드
+  canvas.toBlob(async (blob)=>{
+    let url = '';
+    if(window.fbUploadBlob){
+      toast('☁️ 서명 이미지 업로드 중...','info');
+      url = await window.fbUploadBlob(blob, 'sign_'+Date.now()+'.png') || '';
+    }
+    await _doSave(url);
+  }, 'image/png');
+}
+
+// 캔버스가 비어있는지 확인
+function isCanvasBlank(canvas){
+  const ctx = canvas.getContext('2d');
+  const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  for(let i=3; i<data.length; i+=4){ if(data[i]>0) return false; }
+  return true;
 }
 
 function renderSignHistory(){
-  const room = currentRoom();
-  // 지침서별로 해당 방의 서명만
-  const sigs = room ? S.signatures.filter(s=>!s.room||s.room===room.name) : S.signatures;
   const tbody = document.getElementById('hist-tbody');
-  if(!sigs.length){tbody.innerHTML='<tr><td colspan="8" class="empty">서명 이력 없음</td></tr>';return;}
+  if(!tbody) return; // 재검토 서명 이력 UI 제거됨 — 안전하게 종료
   tbody.innerHTML = sigs.map((s,i)=>{
     const r = currentRoom();
     const pg = s.pageId && r ? r.pages.find(p=>p.id===s.pageId) : null;
@@ -3832,7 +4001,7 @@ function deleteSign(id){
     const target = S.signatures.find(s=>s.id===id);
     if(target && target.fbId && window.fbDeleteSign) window.fbDeleteSign(target.fbId);
     S.signatures=S.signatures.filter(s=>s.id!==id);
-    saveState();renderSignHistory();renderViewerPages();updateSidebarProgress();
+    saveState(); renderViewerPages(); updateSidebarProgress();
     if(isAdminLoggedIn)renderAdminStats();
     toast('삭제됨','warn');
   },'✍️');
@@ -4205,21 +4374,466 @@ function sbRefreshPreview(){
   preview.innerHTML = html;
 }
 
+// ═══════════════════════════════════════════════════════
+// ★ 기존 서명란 페이지 런타임 마이그레이션
+// ═══════════════════════════════════════════════════════
+function migrateExistingPages(){
+  if(!S || !S.rooms) return;
+  let changed = false;
+
+  S.rooms.forEach(room => {
+    room.pages.forEach(page => {
+      if(!page.html) return;
+      let html = page.html;
+
+      // 1) '계장 서명' → '파트장 서명' 전체 치환
+      if(html.includes('계장 서명')){
+        html = html.replace(/계장 서명/g, '파트장 서명');
+        changed = true;
+      }
+
+      // 0) 구형 정적 서명란 → new-sign-sheet 형식 자동 변환
+      // 조건: new-sign-sheet 클래스 없고, 서명란 키워드 포함 표가 있는 페이지
+      if(!html.includes('new-sign-sheet') &&
+         (html.includes('작성자 서명') || html.includes('파트장 서명') || html.includes('전문의 서명'))){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+
+        // 제목 추출 (h2 첫 번째)
+        const h2 = tmp.querySelector('h2');
+        const pageTitle = h2 ? h2.textContent.trim() : page.title;
+
+        // 검사시작 날짜 추출 (기존 표 td 중 날짜 형식 값)
+        let startDate = '';
+        tmp.querySelectorAll('td').forEach(td => {
+          const t = td.textContent.trim();
+          if(/^\d{4}[\.-]\d{2}[\.-]\d{2}$/.test(t)) startDate = t;
+        });
+
+        // 새 서명 시트 HTML 생성 (기존 page.id 재사용)
+        html = buildNewSignSheetHtml(pageTitle, page.id, startDate);
+        changed = true;
+
+        // signSheets 초기화 (없는 경우에만)
+        if(!S.signSheets) S.signSheets = {};
+        if(!S.signSheets[page.id]){
+          S.signSheets[page.id] = {
+            topSigns: startDate ? {startDate:{val:startDate}} : {},
+            midRows:{}, bot3Rows:{}, botRows:[]
+          };
+        }
+
+        // signPageConfig 자동 등록
+        if(!S.signPageConfig) S.signPageConfig = {};
+        if(!S.signPageConfig[room.id]) S.signPageConfig[room.id] = [];
+        if(!S.signPageConfig[room.id].includes(page.id)){
+          S.signPageConfig[room.id].push(page.id);
+        }
+      }
+
+      // 2) new-sign-sheet 포함 페이지에 표2/표3 자동 삽입
+      if(html.includes('new-sign-sheet')){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const sheets = tmp.querySelectorAll('.new-sign-sheet[data-page-id]');
+        sheets.forEach(sheet => {
+          const pid = sheet.dataset.pageId;
+
+          // 표2(검사중단) 누락 확인: saveInlineCell 'mid','stopDate' 포함 여부
+          const hasMidTable = sheet.innerHTML.includes("'mid','stopDate'");
+          // 표3(파트장2/전문의2/기타) 누락 확인
+          const hasBot3Table = sheet.innerHTML.includes("'bot3','extra'");
+
+          // 표1 다음에 표2/표3 삽입
+          const tables = Array.from(sheet.querySelectorAll('table'));
+          if(tables.length === 0) return;
+
+          // 표1: 작성자/파트장/전문의/과장/검사시작날짜
+          // 표4: 재검토일/서명/비고 (id=bot-table-*)
+          const botTable = sheet.querySelector(`table[id^="bot-table-"]`);
+          const botTbody = sheet.querySelector(`tbody[id^="bot-tbody-"]`);
+
+          // 표2 HTML 생성
+          const midTableHtml = `
+  <!-- ② 중단: 검사중단날짜/중단사유/새 검사법 -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none" data-migrated="mid">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">검사중단 날짜</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:50%">중단 사유</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:28%">새 검사법</th>
+    </tr>
+    <tr>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','stopDate')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','stopReason')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','newMethod')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+    </tr>
+  </table>`;
+
+          // 표3 HTML 생성
+          const bot3TableHtml = `
+  <!-- ③ 파트장/전문의/기타사항 -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none" data-migrated="bot3">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">파트장 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:28%">전문의 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left">기타사항</th>
+    </tr>
+    <tr>
+      <td class="top-sign-cell" data-field="partLeader2" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','partLeader2',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="doctor2" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','doctor2',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','bot3','extra')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+    </tr>
+  </table>`;
+
+          // botTable 앞에 표2/표3 삽입
+          if(botTable){
+            if(!hasMidTable){
+              botTable.insertAdjacentHTML('beforebegin', midTableHtml);
+              changed = true;
+            }
+            if(!hasBot3Table){
+              // 표3은 표2 뒤, botTable 앞
+              botTable.insertAdjacentHTML('beforebegin', bot3TableHtml);
+              changed = true;
+            }
+          }
+        });
+
+        if(changed){
+          html = tmp.innerHTML;
+        }
+      }
+
+      if(html !== page.html){
+        page.html = html;
+        changed = true;
+      }
+    });
+  });
+
+  if(changed){
+    // Firebase에 반영 (자동 저장)
+    saveState();
+    if(window.fbSaveContent) window.fbSaveContent().catch(e=>console.warn('마이그레이션 FB 저장 오류:',e));
+    console.log('✅ 기존 서명 시트 마이그레이션 완료');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ★ 새 표준 서명 시트 (사진 형식)
+// ═══════════════════════════════════════════════════════
+
+// 새 서명 시트 HTML 골격 생성 (pageId 기반 interactive 버전)
+function buildNewSignSheetHtml(pageTitle, pageId, startDate){
+  const pid = pageId || ('sg_tmp_'+Date.now());
+  const sd = startDate || '';
+
+  return `
+<div class="new-sign-sheet" data-page-id="${pid}">
+  <h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:10px;font-size:13pt">${pageTitle}</h2>
+
+  <!-- ① 상단: 작성자/파트장/전문의/과장/검사시작날짜 -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:0">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:center;width:18%">작성자 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:center;width:18%">파트장 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:center;width:18%">전문의 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:center;width:18%">과장 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:center;width:28%">검사시작 날짜</th>
+    </tr>
+    <tr>
+      <td class="top-sign-cell" data-field="writer" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','writer',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="partLeader" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','partLeader',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="doctor" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','doctor',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="chief" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','chief',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="startDate" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','startDate',this)"
+          style="padding:6px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;vertical-align:middle">
+        <span class="top-sign-hint" style="color:${sd?'#333':'#aaa'};font-size:10pt">${sd||'클릭하여 입력'}</span>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ② 중단: 검사중단날짜/중단사유/새 검사법 -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">검사중단 날짜</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:50%">중단 사유</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:28%">새 검사법</th>
+    </tr>
+    <tr>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','stopDate')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','stopReason')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','mid','newMethod')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+    </tr>
+  </table>
+
+  <!-- ③ 파트장/전문의/기타사항 -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:22%">파트장 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left;width:28%">전문의 서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;text-align:left">기타사항</th>
+    </tr>
+    <tr>
+      <td class="top-sign-cell" data-field="partLeader2" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','partLeader2',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td class="top-sign-cell" data-field="doctor2" data-pid="${pid}"
+          onclick="openTopSignPopup('${pid}','doctor2',this)"
+          style="padding:22px 8px;border:1px solid #B8D4C4;text-align:center;cursor:pointer;min-height:52px;position:relative">
+        <span class="top-sign-hint" style="color:#aaa;font-size:10pt">클릭하여 입력</span>
+      </td>
+      <td contenteditable="true" onblur="saveInlineCell(this,'${pid}','bot3','extra')"
+          style="padding:22px 8px;border:1px solid #B8D4C4;outline:none;min-height:52px"></td>
+    </tr>
+  </table>
+
+  <!-- ④ 하단: 재검토일/서명/비고 (검토 확인 및 서명 시 자동 누적) -->
+  <table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:0;border-top:none" id="bot-table-${pid}">
+    <tr>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;width:22%">재검토일</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0;width:28%">서명</th>
+      <th style="background:#E6F4EF;padding:6px 8px;border:1px solid #9ABFB0">비고(주요 변경사항)</th>
+    </tr>
+    <tbody id="bot-tbody-${pid}">
+      <!-- 검토 확인 및 서명 완료 시 자동 누적 -->
+    </tbody>
+  </table>
+</div>`;
+}
+
+// 상단 셀 팝업 열기
+function openTopSignPopup(pid, field, cellEl){
+  const labels = {
+    writer:'작성자 서명', partLeader:'파트장 서명 (표1)',
+    doctor:'전문의 서명 (표1)', chief:'과장 서명',
+    startDate:'검사시작 날짜',
+    partLeader2:'파트장 서명 (표3)', doctor2:'전문의 서명 (표3)'
+  };
+  document.getElementById('topSign-modal-title').textContent = '✍️ ' + (labels[field]||field);
+  document.getElementById('topSign-pageId').value = pid;
+  document.getElementById('topSign-field').value = field;
+
+  const sheet = (S.signSheets && S.signSheets[pid]) || {};
+  const topSigns = sheet.topSigns || {};
+  const existing = topSigns[field] || {};
+
+  if(field === 'startDate'){
+    // 날짜만 입력
+    document.getElementById('topSign-name-wrap').style.display = 'none';
+    document.getElementById('topSign-date-wrap').style.display = 'none';
+    document.getElementById('topSign-startdate-wrap').style.display = '';
+    document.getElementById('topSign-startdate-val').value = existing.val || TODAY;
+  } else {
+    // 이름 + 날짜
+    document.getElementById('topSign-name-wrap').style.display = '';
+    document.getElementById('topSign-date-wrap').style.display = '';
+    document.getElementById('topSign-startdate-wrap').style.display = 'none';
+    document.getElementById('topSign-name').value = existing.name || currentUser || '';
+    document.getElementById('topSign-date').value = existing.date || TODAY;
+  }
+  document.getElementById('topSign-modal').classList.add('open');
+}
+
+// 상단 셀 입력 완료
+function submitTopSign(){
+  const pid   = document.getElementById('topSign-pageId').value;
+  const field = document.getElementById('topSign-field').value;
+
+  if(!S.signSheets) S.signSheets = {};
+  if(!S.signSheets[pid]) S.signSheets[pid] = {topSigns:{}, midRows:{}, bot3Rows:{}, botRows:[]};
+  if(!S.signSheets[pid].topSigns) S.signSheets[pid].topSigns = {};
+
+  if(field === 'startDate'){
+    const dateVal = document.getElementById('topSign-startdate-val').value;
+    if(!dateVal){ toast('날짜를 입력하세요.','error'); return; }
+    S.signSheets[pid].topSigns[field] = {val: dateVal};
+  } else {
+    const name = document.getElementById('topSign-name').value.trim();
+    const date = document.getElementById('topSign-date').value;
+    if(!name){ toast('이름을 입력하세요.','error'); return; }
+    S.signSheets[pid].topSigns[field] = {name, date};
+  }
+
+  // Firebase 저장
+  if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+  saveState();
+  closeModal('topSign-modal');
+  // 해당 셀 즉시 업데이트
+  renderTopSignCell(pid, field);
+  toast('입력되었습니다.','success');
+}
+
+// 상단 셀 표시 업데이트
+function renderTopSignCell(pid, field){
+  const cell = document.querySelector(`.top-sign-cell[data-field="${field}"][data-pid="${pid}"]`);
+  if(!cell) return;
+  const sheet = (S.signSheets && S.signSheets[pid]) || {};
+  const topSigns = sheet.topSigns || {};
+  const val = topSigns[field];
+  if(!val){ return; }
+  if(field === 'startDate'){
+    // 날짜 형식 보기 좋게 표시
+    const d = val.val ? new Date(val.val) : null;
+    const display = d && !isNaN(d)
+      ? d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})
+      : val.val || '';
+    cell.innerHTML = `<span style="font-size:10pt;color:#333;font-weight:600">${display}</span>`;
+  } else {
+    cell.innerHTML = `<div style="font-size:10pt;font-weight:700;color:#00583F">${val.name||''}</div><div style="font-size:9pt;color:#666;margin-top:2px">${val.date||''}</div>`;
+  }
+}
+
+// inline contenteditable 셀 저장
+function saveInlineCell(el, pid, section, key){
+  const text = el.innerText.trim();
+  if(!S.signSheets) S.signSheets = {};
+  if(!S.signSheets[pid]) S.signSheets[pid] = {topSigns:{}, midRows:{}, bot3Rows:{}, botRows:[]};
+  if(!S.signSheets[pid][section+'Rows'] && section!=='bot') S.signSheets[pid][section+'Rows'] = {};
+  if(section === 'mid') S.signSheets[pid].midRows[key] = text;
+  else if(section === 'bot3') S.signSheets[pid].bot3Rows[key] = text;
+  if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+  saveState();
+}
+
+// 하단 재검토 행 추가
+function addBotRow(pid){
+  if(!S.signSheets) S.signSheets = {};
+  if(!S.signSheets[pid]) S.signSheets[pid] = {topSigns:{}, midRows:{}, bot3Rows:{}, botRows:[]};
+  if(!S.signSheets[pid].botRows) S.signSheets[pid].botRows = [];
+
+  const newRow = {
+    id: 'br_'+Date.now(),
+    date: TODAY,
+    name: currentUser || '',
+    remark: '지침서 검토 완료'
+  };
+  S.signSheets[pid].botRows.push(newRow);
+  if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+  saveState();
+  renderBotRows(pid);
+  toast('행이 추가되었습니다.','success');
+}
+
+// 하단 재검토 행 렌더링
+function renderBotRows(pid){
+  const tbody = document.getElementById('bot-tbody-'+pid);
+  if(!tbody) return;
+  const sheet  = (S.signSheets && S.signSheets[pid]) || {};
+  const rows   = sheet.botRows || [];
+
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:16px;font-size:11pt">하단의 "검토 확인 및 서명" 완료 시 자동 기록됩니다</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td style="border:1px solid #B8D4C4;padding:4px 6px;width:22%">
+        <input type="date" value="${r.date||TODAY}"
+          onchange="updateBotRow('${pid}',${i},'date',this.value)"
+          style="border:none;outline:none;font-size:10pt;width:100%;background:transparent;font-family:inherit">
+      </td>
+      <td style="border:1px solid #B8D4C4;padding:4px 6px;width:28%;text-align:center">
+        ${r.sigImg
+          ? `<img src="${r.sigImg}" style="height:36px;max-width:90%;vertical-align:middle;border-radius:3px"><br><span style="font-size:9pt;color:#555">${r.name||''}</span>`
+          : `<input type="text" value="${r.name||''}" placeholder="이름"
+              onchange="updateBotRow('${pid}',${i},'name',this.value)"
+              style="border:none;outline:none;font-size:10pt;width:100%;background:transparent;font-family:inherit;text-align:center">`
+        }
+      </td>
+      <td style="border:1px solid #B8D4C4;padding:4px 6px;${isAdminLoggedIn?'':''}">
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="text" value="${r.remark||'지침서 검토 완료'}" placeholder="비고"
+            onchange="updateBotRow('${pid}',${i},'remark',this.value)"
+            style="border:none;outline:none;font-size:10pt;flex:1;background:transparent;font-family:inherit">
+          ${isAdminLoggedIn?`<button class="btn btn-xs btn-danger" onclick="deleteBotRow('${pid}',${i})" style="flex-shrink:0">✕</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function updateBotRow(pid, idx, key, val){
+  if(!S.signSheets||!S.signSheets[pid]||!S.signSheets[pid].botRows) return;
+  S.signSheets[pid].botRows[idx][key] = val;
+  if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+  saveState();
+}
+
+function deleteBotRow(pid, idx){
+  if(!isAdminLoggedIn){ toast('관리자만 삭제할 수 있습니다.','error'); return; }
+  customConfirm('이 행을 삭제하시겠습니까?', ()=>{
+    S.signSheets[pid].botRows.splice(idx, 1);
+    if(window.fbSaveSignSheet) window.fbSaveSignSheet(pid, S.signSheets[pid]);
+    saveState();
+    renderBotRows(pid);
+    toast('삭제되었습니다.','warn');
+  },'🗑️');
+}
+
+// 서명 시트 초기화 (renderViewerPages 후 호출)
+function initSignSheet(pid){
+  // 상단 셀 복원 (표1 + 표3 팝업 필드)
+  ['writer','partLeader','doctor','chief','startDate','partLeader2','doctor2'].forEach(f=>renderTopSignCell(pid,f));
+  // 인라인 셀 복원
+  const sheet = (S.signSheets && S.signSheets[pid]) || {};
+  const mid   = sheet.midRows  || {};
+  const bot3  = sheet.bot3Rows || {};
+
+  const el = document.querySelector(`.new-sign-sheet[data-page-id="${pid}"]`);
+  if(!el) return;
+
+  // 중단 표 셀
+  el.querySelectorAll('td[contenteditable]').forEach(td=>{
+    const onb = td.getAttribute('onblur')||'';
+    const m1 = onb.match(/'mid','(\w+)'/);
+    const m2 = onb.match(/'bot3','(\w+)'/);
+    if(m1 && mid[m1[1]] !== undefined) td.innerText = mid[m1[1]];
+    if(m2 && bot3[m2[1]] !== undefined) td.innerText = bot3[m2[1]];
+  });
+
+  // 하단 행
+  renderBotRows(pid);
+}
+
+// sbBuildHtml - 새 표준 서명 시트 형식으로 교체
 function sbBuildHtml(pageTitle){
   const startDate = (document.getElementById('sb-start-date')||{}).value||'';
-  let html = `<h2 style="text-align:center;border:2px solid #0f2d5c;padding:8px;margin-bottom:12px">${pageTitle}</h2>`;
-  html += '<table style="width:100%;border-collapse:collapse;font-size:10pt"><tr>';
-  sbFields.forEach(f=>{ html += `<th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0;text-align:center">${f.role} 서명</th>`; });
-  if(startDate) html += `<th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0;text-align:center">검사시작 날짜</th>`;
-  html += '</tr><tr>';
-  sbFields.forEach(()=>{ html += '<td style="padding:28px 10px;border:1px solid #B8D4C4"></td>'; });
-  if(startDate) html += `<td style="padding:6px 10px;border:1px solid #B8D4C4">${startDate}</td>`;
-  html += '</tr></table>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px">';
-  html += '<tr><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">재검토일</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">서명</th><th style="background:#E6F4EF;padding:6px 10px;border:1px solid #9ABFB0">비고(주요 변경 사항 등)</th></tr>';
-  for(let i=0;i<4;i++) html += '<tr><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td><td style="padding:14px 10px;border:1px solid #B8D4C4"></td></tr>';
-  html += '</table>';
-  return html;
+  // 실제 pageId는 sbInsertSignPage에서 설정하므로 tmp 사용
+  return buildNewSignSheetHtml(pageTitle, null, startDate);
 }
 
 function sbInsertSignPage(){
@@ -4229,8 +4843,9 @@ function sbInsertSignPage(){
   const pageTitle = (document.getElementById('sb-title').value.trim()) || '서명란';
   const pos = document.getElementById('sb-pos-sel').value;
   const afterId = document.getElementById('sb-after-page').value;
-  const html = sbBuildHtml(pageTitle);
   const newPageId = 'sg_'+Date.now();
+  const startDate = (document.getElementById('sb-start-date')||{}).value||'';
+  const html = buildNewSignSheetHtml(pageTitle, newPageId, startDate);
   const newPage = {id:newPageId, title:pageTitle, html};
   // 삽입
   if(pos==='end') room.pages.push(newPage);
@@ -4238,16 +4853,18 @@ function sbInsertSignPage(){
     const idx = room.pages.findIndex(p=>p.id===afterId);
     room.pages.splice(idx>=0?idx+1:room.pages.length, 0, newPage);
   }
+  // signSheets 초기화
+  if(!S.signSheets) S.signSheets = {};
+  if(!S.signSheets[newPageId]) S.signSheets[newPageId] = {topSigns:{startDate:{val:startDate}}, midRows:{}, bot3Rows:{}, botRows:[]};
   // 서명란으로 자동 지정
   if(!S.signPageConfig) S.signPageConfig = {};
   if(!S.signPageConfig[roomId]) S.signPageConfig[roomId] = [];
   if(!S.signPageConfig[roomId].includes(newPageId)) S.signPageConfig[roomId].push(newPageId);
   addHistory('add', pageTitle, '관리자', '서명란 페이지 생성');
   saveState(); renderAll();
-  toast('서명란 페이지가 삽입되고 서명란으로 지정되었습니다.','success');
-  // 지침서 열람 탭으로 이동
+  toast('서명란 페이지가 삽입되었습니다.','success');
   showMainTab('tab-viewer', document.querySelector('.tnav'));
-  setTimeout(()=>scrollToPage(newPageId), 400);
+  setTimeout(()=>{ scrollToPage(newPageId); initSignSheet(newPageId); }, 400);
 }
 
 function saveSignPageSettings(){
@@ -4726,18 +5343,73 @@ function deletePageSign(pageId, sigId){
 }
 
 // ═══════════════════════════════════════════════════════
-// 인쇄 (열람·서명 탭 전용)
+// 인쇄 시스템
 // ═══════════════════════════════════════════════════════
-// ─── 탭별 전용 인쇄 함수 ───────────────────────────────
-function printViewer(){
-  // 지침서 열람 탭만 인쇄
+
+// ── 인쇄 드롭다운 메뉴 ────────────────────────────────
+function togglePrintMenu(){
+  const menu = document.getElementById('print-menu');
+  if(!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  if(isOpen){ closePrintMenu(); return; }
+
+  const room = currentRoom();
+  const list = document.getElementById('print-page-list');
+  if(list && room){
+    list.innerHTML = room.pages.map(p=>`
+      <button onclick="printPage('${p.id}');closePrintMenu()"
+        style="display:block;width:100%;text-align:left;padding:7px 14px 7px 20px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--text)"
+        onmouseover="this.style.background='var(--navy3)'" onmouseout="this.style.background='none'">
+        📄 ${p.title}
+      </button>`).join('');
+  }
+  menu.style.display = 'block';
+  setTimeout(()=>{
+    document.addEventListener('click', _closePrintMenuOnOutside, {once:true});
+  }, 0);
+}
+
+function _closePrintMenuOnOutside(e){
+  const wrap = document.getElementById('print-menu-wrap');
+  if(wrap && !wrap.contains(e.target)) closePrintMenu();
+}
+
+function closePrintMenu(){
+  const menu = document.getElementById('print-menu');
+  if(menu) menu.style.display = 'none';
+}
+
+// ── 현재 지침서 전체 인쇄 ────────────────────────────
+function printRoom(){
+  document.querySelectorAll('.a4-page-wrap').forEach(w=>{
+    w.removeAttribute('data-print-target');
+  });
   document.body.setAttribute('data-print','viewer');
   window.print();
   setTimeout(()=>document.body.removeAttribute('data-print'), 500);
 }
 
+// ── 특정 페이지만 인쇄 ───────────────────────────────
+function printPage(pageId){
+  document.querySelectorAll('.a4-page-wrap').forEach(w=>{
+    w.dataset.printTarget = (w.dataset.pageId === pageId) ? '1' : '0';
+  });
+  document.body.setAttribute('data-print','page');
+  window.print();
+  setTimeout(()=>{
+    document.body.removeAttribute('data-print');
+    document.querySelectorAll('.a4-page-wrap').forEach(w=>{
+      delete w.dataset.printTarget;
+    });
+  }, 500);
+}
+
+// ── 수정이력 탭 인쇄 (기존 유지) ─────────────────────
+function printViewer(){
+  printRoom();
+}
+
 function printHistory(){
-  // 수정이력 탭만 인쇄
   document.body.setAttribute('data-print','history');
   window.print();
   setTimeout(()=>document.body.removeAttribute('data-print'), 500);
