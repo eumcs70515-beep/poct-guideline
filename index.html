@@ -4413,6 +4413,23 @@ function migrateExistingPages(){
   if(!S || !S.rooms) return;
   let changed = false;
 
+  // ★ signPageConfig 정리 — new-sign-sheet가 아닌 일반 페이지 ID 제거
+  if(S.signPageConfig){
+    Object.keys(S.signPageConfig).forEach(roomId=>{
+      const room = S.rooms.find(r=>r.id===roomId);
+      if(!room) return;
+      const before = S.signPageConfig[roomId] || [];
+      const after = before.filter(pid=>{
+        const page = room.pages.find(p=>p.id===pid);
+        return page && page.html && page.html.includes('new-sign-sheet');
+      });
+      if(after.length !== before.length){
+        S.signPageConfig[roomId] = after;
+        changed = true;
+      }
+    });
+  }
+
   // ★ officialChanges room 필드 보정
   // page 제목으로 실제 소속 방을 찾아 room 필드 수정
   if(S.officialChanges && S.officialChanges.length){
