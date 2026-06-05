@@ -3245,16 +3245,36 @@ function renderPageList(){
     sel.innerHTML = room.pages.map((p,i)=>`<option value="${p.id}">페이지 ${i+1}: ${p.title}</option>`).join('');
   });
   if(!room.pages.length){ el.innerHTML='<div class="empty">페이지가 없습니다</div>'; return; }
-  el.innerHTML = room.pages.map((p,i)=>`
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:11px;font-weight:700;color:#fff;background:var(--navy2);border-radius:4px;padding:2px 7px">${i+1}</span>
-      <span style="flex:1;font-size:13px">${p.title}</span>
-      <button class="btn btn-xs" onclick="movePage('${p.id}',-1)" ${i===0?'disabled':''}>↑</button>
-      <button class="btn btn-xs" onclick="movePage('${p.id}',1)" ${i===room.pages.length-1?'disabled':''}>↓</button>
-      <button class="btn btn-xs btn-primary" onclick="openEditModal('${p.id}')">✏️ 편집</button>
-      <button class="btn btn-xs btn-danger" onclick="deletePage('${p.id}')">🗑️</button>
-    </div>
-  `).join('');
+  // 최상위 페이지만 번호 부여, 자식은 들여쓰기
+  const topPages = room.pages.filter(p=>!p.parentId);
+  let listHtml = '';
+  topPages.forEach((p, ti) => {
+    const children = room.pages.filter(c=>c.parentId===p.id);
+    const num = ti+1;
+    const isLast = ti===topPages.length-1 && children.length===0;
+    listHtml += `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow:hidden">
+      <span style="font-size:11px;font-weight:700;color:#fff;background:var(--navy2);border-radius:4px;padding:2px 6px;min-width:22px;text-align:center;flex-shrink:0">${num}</span>
+      <span style="flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title}</span>
+      <button class="btn btn-xs" onclick="movePage('${p.id}',-1)" style="flex-shrink:0;padding:2px 5px" ${ti===0?'disabled':''}>↑</button>
+      <button class="btn btn-xs" onclick="movePage('${p.id}',1)" style="flex-shrink:0;padding:2px 5px" ${ti===topPages.length-1?'disabled':''}>↓</button>
+      <button class="btn btn-xs" style="flex-shrink:0;padding:2px 6px;background:#E6F4EF;border-color:#9ABFB0;color:#1a3a2a;white-space:nowrap" onclick="addChildPageModal('${currentRoomId}','${p.id}')" title="하위 페이지 추가">＋하위</button>
+      <button class="btn btn-xs btn-primary" style="flex-shrink:0;padding:2px 6px" onclick="openEditModal('${p.id}')">✏️ 편집</button>
+      <button class="btn btn-xs btn-danger" style="flex-shrink:0;padding:2px 6px" onclick="deletePage('${p.id}')">🗑️</button>
+    </div>`;
+    // 자식 페이지
+    children.forEach((c, ci)=>{
+      listHtml += `
+    <div style="background:#f0f7f4;border:1px solid #d4e8de;border-radius:var(--radius);padding:7px 12px 7px 28px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;color:#9ABFB0;min-width:16px">↳</span>
+      <span style="font-size:11px;font-weight:600;color:#9ABFB0;min-width:28px">${num}-${ci+1}</span>
+      <span style="flex:1;font-size:12px;color:#1a3a2a">${c.title}</span>
+      <button class="btn btn-xs btn-primary" onclick="openEditModal('${c.id}')">✏️ 편집</button>
+      <button class="btn btn-xs btn-danger" onclick="deletePage('${c.id}')">🗑️</button>
+    </div>`;
+    });
+  });
+  el.innerHTML = listHtml;
 }
 
 function movePage(pageId, dir){
