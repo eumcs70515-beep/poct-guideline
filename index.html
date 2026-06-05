@@ -1658,6 +1658,32 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 </div>
 
 <!-- 서명 모달 -->
+<!-- 하위 페이지 추가 모달 -->
+<div class="modal-overlay" id="child-page-modal">
+  <div class="modal" style="max-width:480px;width:100%">
+    <h2>📄 하위 페이지 추가</h2>
+    <input type="hidden" id="child-parent-room-id">
+    <input type="hidden" id="child-parent-page-id">
+    <div class="fg" style="margin-bottom:10px">
+      <label>상위 페이지</label>
+      <div id="child-parent-label" style="padding:7px 10px;background:#f0f7f4;border-radius:6px;font-size:13px;color:#1a3a2a;font-weight:500"></div>
+    </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label>하위 페이지 제목 <span class="req">*</span></label>
+      <input type="text" id="child-page-title" placeholder="예: 1-1 검사 개요" style="width:100%;box-sizing:border-box">
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>내용 <span style="font-size:11px;font-weight:400;color:var(--muted)">(나중에 편집 가능)</span></label>
+      <div id="child-page-content" contenteditable="true"
+        style="min-height:80px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;outline:none"></div>
+    </div>
+    <div class="flex-end" style="gap:8px">
+      <button class="btn" onclick="closeModal('child-page-modal')">취소</button>
+      <button class="btn btn-primary" onclick="submitAddChildPage()">➕ 추가</button>
+    </div>
+  </div>
+</div>
+
 <!-- 새 지침서 추가 모달 -->
 <div class="modal-overlay" id="add-room-modal">
   <div class="modal" style="max-width:400px;width:100%">
@@ -2370,12 +2396,13 @@ function renderMobileTOC(){
     const listEl = document.createElement('div');
     listEl.className = 'mtoc-page-list';
     const signPageIds = (S.signPageConfig && S.signPageConfig[room.id]) || [];
+    const topPages = room.pages.filter(p=>!p.parentId);
     let num = 0;
-    room.pages.forEach((page) => {
+    topPages.forEach((page) => {
       const isSign = signPageIds.includes(page.id);
+      const children = room.pages.filter(c=>c.parentId===page.id);
       const item = document.createElement('div');
       if(isSign){
-        // 서명 페이지: 넘버링 없이 들여쓰기 + 작은 글씨 (웹 목차와 동일)
         item.className = 'mtoc-page-item mtoc-page-sign';
         item.innerHTML = `<span class="pg-icon" style="color:#9ABFB0;font-size:10px">↳</span><span style="flex:1;font-size:11px;color:#888">✍️ 서명</span>`;
       } else {
@@ -2388,6 +2415,15 @@ function renderMobileTOC(){
         showMobilePage(page.id);
       };
       listEl.appendChild(item);
+      // 자식 페이지 들여쓰기
+      children.forEach((c,ci)=>{
+        const child = document.createElement('div');
+        child.className = 'mtoc-page-item';
+        child.style.cssText = 'padding-left:28px;background:#f0f7f4;border-left:2px solid #9ABFB0';
+        child.innerHTML = `<span class="pg-icon" style="font-size:10px;color:#9ABFB0;min-width:28px">${num}-${ci+1}</span><span style="flex:1;font-size:12px">${c.title}</span>`;
+        child.onclick = function(){ currentRoomId = room.id; showMobilePage(page.id); };
+        listEl.appendChild(child);
+      });
     });
     card.appendChild(titleEl);
     card.appendChild(listEl);
@@ -2655,16 +2691,79 @@ function renderRoomList(){
   const el = document.getElementById('room-list-container');
   if(!el) return;
   if(!S.rooms.length){ el.innerHTML='<div class="empty">지침서 방이 없습니다</div>'; return; }
+  const topPages = r => r.pages.filter(p=>!p.parentId);
   el.innerHTML = S.rooms.map((r,i)=>`
-    <div style="background:#f8f9fd;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:11px;font-weight:700;color:#fff;background:var(--navy2);border-radius:4px;padding:2px 7px">${i+1}</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:700">📂 ${r.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${r.desc||''} &nbsp;·&nbsp; ${r.pages.length}페이지</div>
+    <div style="background:#f8f9fd;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${topPages(r).length?'8px':'0'}">
+        <span style="font-size:11px;font-weight:700;color:#fff;background:var(--navy2);border-radius:4px;padding:2px 7px">${i+1}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">📂 ${r.name}</div>
+          <div style="font-size:11px;color:var(--muted)">${r.desc||''} &nbsp;·&nbsp; ${r.pages.length}페이지</div>
+        </div>
+        ${isAdminLoggedIn?`<button class="btn btn-xs btn-danger" onclick="deleteRoom('${r.id}')" ${S.rooms.length<=1?'disabled':''}>🗑️ 삭제</button>`:''}
       </div>
-      <button class="btn btn-xs btn-danger" onclick="deleteRoom('${r.id}')" ${S.rooms.length<=1?'disabled':''}>🗑️ 삭제</button>
+      <div>
+        ${topPages(r).map((p,pi)=>{
+          const children = r.pages.filter(c=>c.parentId===p.id);
+          return `
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;background:#fff;border:1px solid var(--border2);margin-bottom:3px">
+            <span style="font-size:10px;color:var(--muted);min-width:18px">${pi+1}</span>
+            <span style="flex:1;font-size:12px">${p.title}</span>
+            ${isAdminLoggedIn?`
+            <button class="btn btn-xs" style="font-size:10px;padding:2px 6px;background:#E6F4EF;border-color:#9ABFB0" onclick="addChildPageModal('${r.id}','${p.id}')" title="하위 페이지 추가">＋하위</button>
+            `:''}
+          </div>
+          ${children.map((c,ci)=>`
+          <div style="display:flex;align-items:center;gap:6px;padding:3px 6px 3px 24px;border-radius:4px;background:#f0f7f4;border:1px solid #d4e8de;margin-bottom:2px">
+            <span style="font-size:10px;color:#9ABFB0">↳</span>
+            <span style="font-size:11px;color:#1a3a2a;flex:1">${pi+1}-${ci+1} ${c.title}</span>
+          </div>`).join('')}
+          `;
+        }).join('')}
+      </div>
     </div>
   `).join('');
+}
+
+// ─── 하위 페이지 추가 ─────────────────────────────────
+function addChildPageModal(roomId, parentPageId){
+  if(!isAdminLoggedIn){ toast('관리자만 추가할 수 있습니다.','error'); return; }
+  const room = S.rooms.find(r=>r.id===roomId);
+  const parent = room && room.pages.find(p=>p.id===parentPageId);
+  if(!room || !parent){ toast('페이지를 찾을 수 없습니다.','error'); return; }
+  // 자식의 자식은 허용하지 않음 (1단계만)
+  if(parent.parentId){ toast('하위 페이지에는 추가할 수 없습니다.','warn'); return; }
+  document.getElementById('child-parent-room-id').value = roomId;
+  document.getElementById('child-parent-page-id').value = parentPageId;
+  document.getElementById('child-parent-label').textContent = parent.title;
+  document.getElementById('child-page-title').value = '';
+  document.getElementById('child-page-content').innerHTML = '';
+  document.getElementById('child-page-modal').classList.add('open');
+  setTimeout(()=>{ document.getElementById('child-page-title').focus(); }, 100);
+}
+
+function submitAddChildPage(){
+  const roomId   = document.getElementById('child-parent-room-id').value;
+  const parentId = document.getElementById('child-parent-page-id').value;
+  const title    = document.getElementById('child-page-title').value.trim();
+  const html     = document.getElementById('child-page-content').innerHTML.trim();
+  if(!title){ toast('제목을 입력하세요.','error'); return; }
+  const room = S.rooms.find(r=>r.id===roomId);
+  if(!room){ toast('지침서를 찾을 수 없습니다.','error'); return; }
+  // 부모 페이지 바로 뒤에 자식 삽입
+  const parentIdx = room.pages.findIndex(p=>p.id===parentId);
+  // 기존 자식들 뒤에 추가
+  let insertIdx = parentIdx + 1;
+  while(insertIdx < room.pages.length && room.pages[insertIdx].parentId === parentId){
+    insertIdx++;
+  }
+  const newPage = { id:'pg_'+Date.now(), title, html: html||'', parentId };
+  room.pages.splice(insertIdx, 0, newPage);
+  closeModal('child-page-modal');
+  saveState();
+  if(window.fbSaveMetaOnly) window.fbSaveMetaOnly();
+  renderAll();
+  toast('📄 하위 페이지 "'+title+'"이 추가되었습니다.','success');
 }
 
 function openAddRoomModal(){
@@ -2734,9 +2833,11 @@ function renderTOC(){
   const room = currentRoom(); if(!room) return;
   const el = document.getElementById('toc-nav');
   const signPages = (S.signPageConfig && S.signPageConfig[room.id]) || [];
+  const topPages = room.pages.filter(p=>!p.parentId);
   let num = 0;
-  el.innerHTML = room.pages.map((p)=>{
+  el.innerHTML = topPages.map((p)=>{
     const isSign = signPages.includes(p.id);
+    const children = room.pages.filter(c=>c.parentId===p.id);
     if(isSign){
       return `<div class="sb-item" onclick="scrollToPage('${p.id}')" style="padding-left:28px;opacity:0.75">
         <span class="sb-icon" style="font-size:10px;color:#9ABFB0">↳</span>
@@ -2744,10 +2845,15 @@ function renderTOC(){
       </div>`;
     } else {
       num++;
+      const childHtml = children.map((c,ci)=>`
+        <div class="sb-item" onclick="scrollToPage('${c.id}')" style="padding-left:24px;background:#f0f7f4;border-left:2px solid #9ABFB0">
+          <span class="sb-icon" style="font-size:10px;color:#9ABFB0;min-width:28px">${num}-${ci+1}</span>
+          <span style="font-size:12px;color:#1a3a2a">${c.title}</span>
+        </div>`).join('');
       return `<div class="sb-item" onclick="scrollToPage('${p.id}')">
         <span class="sb-icon">${num}</span>
         <span>${p.title}</span>
-      </div>`;
+      </div>${childHtml}`;
     }
   }).join('');
 }
@@ -2955,10 +3061,18 @@ function renderViewerPages(){
   let globalPageNum = 0;
   const allNums = [];
 
-  room.pages.forEach(page=>{
+  // 최상위 페이지만 렌더링 (자식은 부모 아래 이어붙임)
+  const topPages = room.pages.filter(p=>!p.parentId);
+  topPages.forEach(page=>{
     // 전체 HTML 파싱 (구버전 makeSignSectionHtml 제거)
     const tmp = document.createElement('div');
-    tmp.innerHTML = page.html;
+    // 자식 페이지 HTML 이어붙이기 (구분선 포함)
+    const children = room.pages.filter(c=>c.parentId===page.id);
+    let fullHtml = page.html;
+    children.forEach(c=>{
+      fullHtml += `<hr style="border:none;border-top:2px dashed #9ABFB0;margin:24px 0">` + c.html;
+    });
+    tmp.innerHTML = fullHtml;
     const nodes = Array.from(tmp.childNodes);
 
     // 노드 → 그룹 분할
@@ -3161,20 +3275,23 @@ function _doDeletePage(pageId){
   if(!isAdminLoggedIn){ toast('관리자만 삭제할 수 있습니다.','error'); return; }
   const room = currentRoom(); if(!room) return;
   const pg = room.pages.find(p=>p.id===pageId);
-  room.pages = room.pages.filter(p=>p.id!==pageId);
-  // 서명페이지 설정에서도 제거
+  // 부모 삭제 시 자식도 함께 삭제
+  const toDelete = [pageId, ...room.pages.filter(c=>c.parentId===pageId).map(c=>c.id)];
+  room.pages = room.pages.filter(p=>!toDelete.includes(p.id));
   if(S.signPageConfig && S.signPageConfig[currentRoomId]){
-    S.signPageConfig[currentRoomId] = S.signPageConfig[currentRoomId].filter(id=>id!==pageId);
+    S.signPageConfig[currentRoomId] = S.signPageConfig[currentRoomId].filter(id=>!toDelete.includes(id));
   }
   addHistory('delete', pg?pg.title:'페이지', currentUser||'관리자', '페이지 삭제');
   saveState();
-  // Firebase에서도 해당 페이지 문서 삭제
   if(window.fbSaveContent) window.fbSaveContent().catch(e=>console.error('FB 삭제 저장 오류:',e));
-  // Firebase poct_pages에서 해당 문서 직접 삭제
-  const docId = currentRoomId + '__' + pageId;
-  if(window.fbDeletePage) window.fbDeletePage(docId);
+  // Firebase에서 해당 페이지 및 자식 페이지 문서 삭제
+  toDelete.forEach(pid=>{
+    const docId = currentRoomId + '__' + pid;
+    if(window.fbDeletePage) window.fbDeletePage(docId);
+  });
   renderAll();
-  toast('페이지가 삭제되었습니다.','warn');
+  const childCount = toDelete.length - 1;
+  toast('페이지가 삭제되었습니다.'+(childCount>0?` (하위 ${childCount}개 포함)`:''),'warn');
 }
 
 // ═══════════════════════════════════════════════════════
