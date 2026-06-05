@@ -3550,17 +3550,24 @@ function openEditModal(pageId, subIdx){
 
   document.getElementById('edit-title').value = page.title;
 
-  // 서브페이지가 1개면 전체, 여러 개면 해당 서브페이지만
+  // 항상 page.html 원본 사용 (자식 HTML이 섞이는 버그 방지)
+  // 서브페이지(분할)인 경우만 캐시 사용
   const cacheKey = pageId + '_' + subIdx;
-  const subHtml = _subPageCache[cacheKey];
-  if(subHtml !== undefined && Object.keys(_subPageCache).filter(k=>k.startsWith(pageId+'_')).length > 1){
-    // 분할된 경우 해당 서브페이지 HTML만 표시
-    document.getElementById('edit-content-div').innerHTML = subHtml;
+  const subKeys = Object.keys(_subPageCache).filter(k=>k.startsWith(pageId+'_'));
+  // 캐시가 여러 개 = 분할된 페이지
+  if(subKeys.length > 1){
+    // 분할된 경우: 캐시에서 자식 구분선(hr[data-child-id]) 이전 내용만 추출
+    const subHtml = _subPageCache[cacheKey] || '';
+    // hr[data-child-id] 이전까지만 (자식 내용 제거)
+    const cleanHtml = subIdx === 0
+      ? subHtml.replace(/<hr[^>]*data-child-id[^>]*>[\s\S]*/i, '')
+      : subHtml;
+    document.getElementById('edit-content-div').innerHTML = cleanHtml;
     document.getElementById('edit-sub-info').style.display = 'block';
     document.getElementById('edit-sub-info').textContent =
       `📄 ${page.title} — ${subIdx+1}번째 페이지 편집 중 (저장 시 전체 내용에 반영됩니다)`;
   } else {
-    // 분할 안 됐거나 캐시 없으면 전체 html
+    // 분할 안 됐으면 page.html 원본 직접 사용 (자식 HTML 미포함)
     document.getElementById('edit-content-div').innerHTML = page.html;
     document.getElementById('edit-sub-info').style.display = 'none';
   }
@@ -3600,7 +3607,8 @@ function saveEdit(){
     }
     page.html = combined;
   } else {
-    page.html = newContent;
+    // 자식 페이지 구분선 이후 내용 제거 후 저장 (자식 HTML 중복 방지)
+    page.html = newContent.replace(/<hr[^>]*data-child-id[^>]*>[\s\S]*/i, '');
   }
 
   const reason = document.getElementById('edit-reason').value.trim() || '내용 수정';
