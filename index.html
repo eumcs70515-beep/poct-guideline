@@ -145,10 +145,10 @@
     try{
       const roomsMeta = S.rooms.map(r=>({
         id:r.id, name:r.name, desc:r.desc||'',
+        docInfo: r.docInfo || {},
         pages: r.pages.map(p=>({ id:p.id, title:p.title }))
       }));
       await setDoc(META_DOC, {
-        docInfo:        S.docInfo        || {},
         history:        S.history        || [],
         officialChanges:S.officialChanges|| [],
         signPageConfig: S.signPageConfig || {},
@@ -168,10 +168,10 @@
       // 1) 메타 저장 (html 제외한 구조만)
       const roomsMeta = S.rooms.map(r=>({
         id:r.id, name:r.name, desc:r.desc||'',
+        docInfo: r.docInfo || {},
         pages: r.pages.map(p=>({ id:p.id, title:p.title }))
       }));
       await setDoc(META_DOC, {
-        docInfo:        S.docInfo        || {},
         history:        S.history        || [],
         officialChanges:S.officialChanges|| [],
         signPageConfig: S.signPageConfig || {},
@@ -221,11 +221,18 @@
       if(meta.roomsMeta && meta.roomsMeta.length){
         S.rooms = meta.roomsMeta.map(r=>({
           ...r,
+          docInfo: r.docInfo || {docNo:'', version:'', lastRevised:''},
           pages: r.pages.map(p=>({
             ...p,
             html:'<div style="text-align:center;padding:40px;color:#888">⏳ 불러오는 중...</div>'
           }))
         }));
+      }
+      // 구버전 호환: S.docInfo가 있으면 room1에 마이그레이션
+      if(meta.docInfo && meta.docInfo.docNo){
+        if(S.rooms[0] && !S.rooms[0].docInfo?.docNo){
+          S.rooms[0].docInfo = meta.docInfo;
+        }
       }
 
       // 페이지 콘텐츠 병렬 로드
@@ -266,7 +273,8 @@
       if(!rooms.length) return false;
       if(typeof S !== 'undefined'){
         S.rooms = rooms;
-        if(old.docInfo)         S.docInfo         = old.docInfo;
+        // 구버전 docInfo → 첫 번째 방으로 마이그레이션
+        if(old.docInfo && S.rooms[0]){ S.rooms[0].docInfo = old.docInfo; }
         if(old.history)         S.history         = old.history;
         if(old.officialChanges) S.officialChanges = old.officialChanges;
         if(old.signPageConfig)  S.signPageConfig  = old.signPageConfig;
@@ -684,113 +692,158 @@ canvas{display:block;cursor:crosshair;touch-action:none}
 
 /* ── 모바일 최적화 ── */
 @media (max-width: 768px){
-  .topbar{ padding:0 8px; height:44px; gap:6px; }
-  .topbar-brand img{ height:32px; }
+  /* ── 탑바 ── */
+  .topbar{ padding:0 8px; height:48px; gap:6px; }
+  .topbar-brand img{ height:30px; }
   .topbar-brand .sub{ display:none; }
   .topbar-brand{ gap:6px; }
   .topbar-nav{ display:none; }
   .topbar-info{ display:none; }
   #save-indicator{ display:none; }
-  #topbar-save-btn{
-    padding:4px 8px!important; font-size:10px!important;
-    gap:3px!important; border-radius:5px!important;
-  }
-  #topbar-load-btn{
-    padding:4px 8px!important; font-size:10px!important;
-    gap:3px!important; border-radius:5px!important;
+  #topbar-save-btn, #topbar-load-btn{
+    padding:5px 10px!important; font-size:11px!important;
+    gap:3px!important; border-radius:6px!important;
   }
   #topbar-username{
-    font-size:10px!important; padding:2px 5px!important;
-    max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-size:10px!important; padding:2px 6px!important;
+    max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
 
-  /* 모바일 하단 네비게이션 */
+  /* ── 하단 네비 ── */
   #mobile-nav{
     display:flex!important;
     position:fixed; bottom:0; left:0; right:0; z-index:190;
     background:var(--navy); border-top:1px solid rgba(255,255,255,.15);
-    height:56px; align-items:stretch;
+    height:58px; align-items:stretch;
   }
   .mobile-nav-btn{
     flex:1; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; color:rgba(255,255,255,.7); font-size:10px;
-    gap:3px; cursor:pointer; border:none; background:none;
+    justify-content:center; color:rgba(255,255,255,.65); font-size:9px;
+    gap:2px; cursor:pointer; border:none; background:none;
     font-family:inherit; transition:background .15s;
+    -webkit-tap-highlight-color:transparent;
   }
-  .mobile-nav-btn.active{ color:#fff; background:rgba(255,255,255,.12); }
-  .mobile-nav-btn span:first-child{ font-size:20px; }
+  .mobile-nav-btn.active{ color:#fff; background:rgba(255,255,255,.13); }
+  .mobile-nav-btn span:first-child{ font-size:22px; }
 
-  .layout{ padding-top:88px; padding-bottom:56px; }
-  #global-search-bar{ top:44px!important; }
+  /* ── 레이아웃 ── */
+  .layout{ padding-top:92px; padding-bottom:58px; }
+  #global-search-bar{ top:48px!important; }
   .main-content{ margin-left:0!important; }
   .sidebar{ display:none!important; }
-
-  /* 두 번째 상단(viewer-header) 모바일에서 숨김 */
-  .viewer-header{
-    display:none!important;
-  }
+  .viewer-header{ display:none!important; }
   #current-room-title{ display:none!important; }
-  #viewer-room-tabs{ gap:4px!important; flex-wrap:nowrap!important; overflow-x:auto; }
-  #viewer-room-tabs .room-tab-btn{
-    font-size:10px!important; padding:3px 8px!important;
-    white-space:nowrap; border-radius:12px!important;
-  }
-  .viewer-header .btn{
-    font-size:10px!important; padding:3px 8px!important;
-    white-space:nowrap!important;
-  }
-  /* 인쇄 버튼 숨김 (모바일에서 불필요) */
+
+  /* ── 인쇄 버튼 완전 숨김 ── */
+  button[onclick*="print"],
+  button[onclick*="Print"],
   .viewer-header button[onclick*="print"]{ display:none!important; }
 
-  /* A4 페이지를 모바일에서 폭 100%로 */
-  .a4-page{
-    width:100%!important; min-height:auto!important;
-    padding:12px!important; margin:0 0 12px!important;
-    box-shadow:0 2px 8px rgba(0,0,0,.12)!important;
-    font-size:10pt!important;
+  /* ── 방 탭 ── */
+  #viewer-room-tabs{ gap:4px!important; flex-wrap:nowrap!important; overflow-x:auto; }
+  #viewer-room-tabs .room-tab-btn{
+    font-size:11px!important; padding:4px 10px!important;
+    white-space:nowrap; border-radius:14px!important;
   }
-  .a4-page-wrap{ padding:0 8px; }
-  .page-controls{ width:100%!important; }
-  .doc-viewer{ padding:8px 8px 80px!important; }
-  .viewer-header{ padding:8px 10px!important; flex-wrap:wrap; gap:6px; }
-
-  /* 지침서 방 탭 */
   .room-tabs{ overflow-x:auto; white-space:nowrap; }
 
-  /* 모달 전체화면 */
-  .modal-overlay .modal{ width:100%!important; height:100%!important;
-    max-width:100%!important; max-height:100%!important;
-    border-radius:0!important; margin:0!important; }
-  #edit-modal .modal{ border-radius:0; }
-
-  /* 서명 모달 - 폰에서 캔버스 높이 줄이기 */
-  #pagesign-modal .modal{ padding:12px!important; }
-  #ps-canvas{ width:100%!important; height:70px!important; }
-  #sign-canvas{ width:100%!important; height:70px!important; }
-  .canvas-sign-wrap{ margin:4px 0!important; }
-  .form-grid{ grid-template-columns:1fr!important; gap:6px!important; }
-  #pagesign-modal .modal .fg{ margin-bottom:4px!important; }
-
-  /* 불러오기/저장 버튼 크게 */
-  #topbar-save-btn, #topbar-load-btn{
-    padding:5px 8px!important; font-size:11px!important;
+  /* ── A4 페이지 ── */
+  .a4-page{
+    width:100%!important; min-height:auto!important;
+    padding:14px 12px!important; margin:0 0 12px!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.10)!important;
+    font-size:10.5pt!important; line-height:1.7!important;
+    border-radius:6px!important;
   }
+  .a4-page h1{ font-size:14pt!important; margin-bottom:10px!important; }
+  .a4-page h2{ font-size:12pt!important; margin:14px 0 6px!important; }
+  .a4-page h3{ font-size:11pt!important; margin:10px 0 5px!important; }
+  .a4-page h4{ font-size:10pt!important; }
+  .a4-page li{ font-size:10pt!important; line-height:1.7!important; }
+  .a4-page table{ font-size:9pt!important; }
+  .a4-page-wrap{ padding:0 8px; }
+  .page-controls{ width:100%!important; font-size:11px!important; }
+  .doc-viewer{ padding:8px 0 80px!important; }
 
-  /* 페이지 번호 모바일에서 중앙 하단 */
+  /* ── 페이지 번호 ── */
   .a4-page .page-num{
     left:50%!important; right:auto!important;
-    transform:translateX(-50%)!important;
-    bottom:6px!important;
+    transform:translateX(-50%)!important; bottom:6px!important;
+    font-size:9pt!important;
   }
 
-  /* 이미지 화면 넘침 방지 (모바일) */
+  /* ── 이미지 ── */
   .a4-page img, .doc-viewer img{
     max-width:100%!important; height:auto!important;
   }
 
-  /* 검색바 모바일 */
+  /* ── 모달 전체화면 ── */
+  .modal-overlay .modal{
+    width:100%!important; height:100%!important;
+    max-width:100%!important; max-height:100%!important;
+    border-radius:0!important; margin:0!important;
+  }
+  #edit-modal .modal{ border-radius:0; }
+
+  /* ── 서명 UI (pid별 독립 서명란) ── */
+  [id^="signui_"]{
+    width:100%!important; margin:0 0 12px!important;
+    padding:0 8px!important; box-sizing:border-box!important;
+  }
+  .sign-area{ padding:14px 12px!important; border-radius:8px!important; }
+  .sign-area h3{ font-size:14px!important; margin-bottom:10px!important; }
+  .chk-row{ font-size:13px!important; gap:8px!important; margin-bottom:10px!important; }
+  [id^="form_"]{
+    padding:12px!important;
+  }
+  [id^="form_"] .form-grid{
+    grid-template-columns:1fr 1fr!important; gap:8px!important;
+  }
+  [id^="form_"] .fg label{ font-size:12px!important; margin-bottom:3px!important; }
+  [id^="form_"] .fg input{ padding:8px 10px!important; font-size:14px!important; border-radius:6px!important; }
+  [id^="canvas_"]{
+    width:100%!important; height:80px!important; display:block;
+  }
+  [id^="form_"] .flex-end{ gap:8px!important; margin-top:12px!important; }
+  [id^="form_"] .flex-end button{
+    flex:1!important; padding:12px!important;
+    font-size:14px!important; font-weight:700!important; border-radius:8px!important;
+  }
+
+  /* ── 재검토 서명 이력 테이블 ── */
+  .new-sign-sheet{ overflow-x:auto!important; -webkit-overflow-scrolling:touch; }
+  .new-sign-sheet table{ font-size:9pt!important; min-width:320px; }
+  .new-sign-sheet th, .new-sign-sheet td{ padding:5px 6px!important; }
+  .new-sign-sheet img{ height:24px!important; }
+
+  /* ── pagesign 모달 ── */
+  #pagesign-modal .modal{ padding:14px!important; }
+  #ps-canvas{ width:100%!important; height:70px!important; }
+  .canvas-sign-wrap{ margin:4px 0!important; }
+  .form-grid{ grid-template-columns:1fr!important; gap:8px!important; }
+  #pagesign-modal .modal .fg{ margin-bottom:6px!important; }
+  #pagesign-modal .flex-end button{
+    flex:1!important; padding:12px!important;
+    font-size:14px!important; font-weight:700!important;
+  }
+
+  /* ── 서명 테이블 (page-sign-section) ── */
+  .page-sign-section{ padding:10px 8px!important; font-size:9pt!important; margin-top:10px!important; }
+  .page-sign-section h4{ font-size:13px!important; margin-bottom:6px!important; }
+  .page-sign-table{ font-size:8pt!important; }
+  .page-sign-table th, .page-sign-table td{ padding:5px 4px!important; }
+  .page-sign-table img{ height:22px!important; }
+  .page-sign-section .btn{
+    width:100%!important; padding:11px!important;
+    font-size:14px!important; margin-top:8px!important; border-radius:8px!important;
+  }
+
+  /* ── 목차 서명 페이지 항목 ── */
+  .mtoc-page-sign{ opacity:0.8; background:#f8faf9!important; }
+
+  /* ── 검색바 ── */
   #global-search-bar{ padding:4px 8px!important; }
-  #global-search-input{ font-size:13px!important; }
+  #global-search-input{ font-size:14px!important; }
 }
 
 /* PC에서 global-search-bar 숨기기 */
@@ -956,73 +1009,7 @@ table img{ max-width:100%; height:auto; }
   }
 }
 
-/* ── 모바일: 전체 서명 영역 + 서명 이력 ── */
-@media (max-width: 768px){
-  /* sign-section 컨테이너 width 해제 */
-  #sign-section{
-    width:100%!important; margin:0 0 12px!important;
-    padding:0 8px!important; box-sizing:border-box!important;
-  }
-
-  /* 검토 확인 및 서명 영역 */
-  .sign-area{
-    padding:12px!important; margin-top:8px!important;
-  }
-  .sign-area h3{
-    font-size:13px!important; margin-bottom:8px!important;
-  }
-  .sign-area .alert{
-    font-size:11px!important; padding:8px!important;
-  }
-  .chk-row{
-    font-size:12px!important; gap:8px!important;
-    margin-bottom:8px!important;
-  }
-  /* 서명 폼 */
-  #sign-form{
-    padding:10px!important;
-  }
-  #sign-form .form-grid{
-    grid-template-columns:1fr 1fr!important; gap:6px!important;
-  }
-  #sign-form .fg label{
-    font-size:11px!important; margin-bottom:2px!important;
-  }
-  #sign-form .fg input,
-  #sign-form .fg select{
-    padding:6px 8px!important; font-size:13px!important;
-  }
-  /* 서명 캔버스 */
-  #sign-canvas{ width:100%!important; height:60px!important; }
-  /* 비고 */
-  #s-remark{ font-size:12px!important; }
-  /* 버튼 */
-  #sign-form .flex-end{
-    gap:8px!important; margin-top:10px!important;
-  }
-  #sign-form .flex-end button{
-    flex:1!important; padding:10px!important;
-    font-size:13px!important; font-weight:700!important;
-  }
-  /* 페이지 선택 */
-  .sign-page-selector{
-    font-size:12px!important;
-  }
-
-  /* 재검토 서명 이력 */
-  .card{ padding:10px!important; margin-top:10px!important; }
-  .card-title{ font-size:13px!important; margin-bottom:8px!important; }
-  /* 이력 테이블 가로 스크롤 */
-  .tbl-wrap{ overflow-x:auto!important; -webkit-overflow-scrolling:touch; }
-  .tbl{ font-size:10px!important; min-width:480px; }
-  .tbl th, .tbl td{
-    padding:5px 4px!important; white-space:nowrap;
-  }
-  /* 서명 이미지 */
-  .tbl img{ height:20px!important; }
-  /* 삭제 버튼 */
-  .tbl .btn{ padding:2px 6px!important; font-size:10px!important; }
-}
+/* ── 모바일 서명 영역: 위 @media (max-width:768px) 블록에 통합됨 ── */
 
 /* ── 새 서명 시트 스타일 ── */
 .new-sign-sheet table{ border-collapse:collapse; }
@@ -1095,24 +1082,23 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 <!-- 모바일 하단 네비게이션 (모바일에서만 표시) -->
 <div id="mobile-nav" style="display:none">
   <button class="mobile-nav-btn active" id="mobile-toc-btn" onclick="showMobileTOC()">
-    <span>📚</span><span>지침서 목록</span>
+    <span>📚</span><span>목록</span>
   </button>
   <button class="mobile-nav-btn" onclick="hideMobileTOC();showMainTab('tab-viewer',this)" data-tab="tab-viewer">
     <span>📄</span><span>열람</span>
-  </button>
-  <button class="mobile-nav-btn" id="mobile-edit-btn" onclick="showMainTab('tab-edit',this)" data-tab="tab-edit" style="display:none">
-    <span>✏️</span><span>편집</span>
-  </button>
-  <button class="mobile-nav-btn" id="mobile-admin-btn" onclick="showMainTab('tab-admin',this)" data-tab="tab-admin" style="display:none">
-    <span>👤</span><span>관리자</span>
   </button>
 </div>
 
 <!-- ── 모바일 목차 화면 ── -->
 <div id="mobile-toc-screen">
-  <div class="mtoc-header">
+  <div class="mtoc-header" style="position:relative">
     <h2>📚 지침서 목록</h2>
     <p>열람할 지침서를 선택하세요</p>
+    <button id="mtoc-add-room-btn" onclick="openAddRoomModal()"
+      style="display:none;position:absolute;top:14px;right:14px;
+             background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.5);
+             border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer;font-weight:700"
+      title="새 지침서 추가">＋ 추가</button>
   </div>
   <div id="mtoc-content"></div>
   <div style="height:16px"></div>
@@ -1259,7 +1245,13 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 <div class="layout">
 <div class="sidebar" id="sidebar">
   <div class="sb-section">
-    <div class="sb-head">📚 지침서 방</div>
+    <div class="sb-head" style="display:flex;align-items:center;justify-content:space-between">
+      <span>📚 지침서 방</span>
+      <button id="sb-add-room-btn" onclick="openAddRoomModal()"
+        style="display:none;background:#00583F;color:#fff;border:none;border-radius:5px;
+               padding:2px 8px;font-size:12px;cursor:pointer;font-weight:700;line-height:1.6"
+        title="새 지침서 추가">＋</button>
+    </div>
     <div id="room-nav"></div>
   </div>
   <div class="sb-section">
@@ -1666,6 +1658,25 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 </div>
 
 <!-- 서명 모달 -->
+<!-- 새 지침서 추가 모달 -->
+<div class="modal-overlay" id="add-room-modal">
+  <div class="modal" style="max-width:400px;width:100%">
+    <h2>📚 새 지침서 추가</h2>
+    <div class="fg" style="margin-bottom:12px">
+      <label>지침서명 <span class="req">*</span></label>
+      <input type="text" id="add-room-name" placeholder="예: 혈당 검사 지침서" style="width:100%;box-sizing:border-box">
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>문서번호 <span style="font-size:11px;color:var(--muted);font-weight:400">(선택)</span></label>
+      <input type="text" id="add-room-docno" placeholder="예: PO-2-01-01" style="width:100%;box-sizing:border-box">
+    </div>
+    <div class="flex-end" style="gap:8px">
+      <button class="btn" onclick="closeModal('add-room-modal')">취소</button>
+      <button class="btn btn-primary" onclick="submitAddRoom()">➕ 생성</button>
+    </div>
+  </div>
+</div>
+
 <!-- 공식이력 수정 모달 -->
 <div class="modal-overlay" id="oc-edit-modal">
   <div class="modal" style="max-width:520px;width:100%">
@@ -1963,11 +1974,6 @@ function loadState(){
 function getDefaultState(){
   return {
     rooms: getDefaultRooms(),
-    docInfo: {
-      docNo: 'PO-1-01-01',
-      version: '2025-08',
-      lastRevised: '2025.08.20'
-    },
     signatures:[],
     history:[],
     officialChanges:[],
@@ -1985,7 +1991,9 @@ function getDefaultRooms(){
   // ⚠️ 배포용: 콘텐츠 초기값 제거됨. 실제 내용은 Firebase에서 로드됩니다.
   const LOADING_HTML = '<div style="text-align:center;padding:60px 20px;color:#888"><div style="font-size:48px;margin-bottom:16px">☁️</div><h3 style="color:#00583F;margin-bottom:8px">Firebase에서 지침서를 불러오는 중...</h3><p style="font-size:13px">잠시만 기다려 주세요. 네트워크 연결을 확인해 주세요.</p></div>';
   return [
-    { id:'room1', name:'현장검사 운영지침서', desc:'현장검사 분야 운영 전반에 관한 지침서', pages:[
+    { id:'room1', name:'현장검사 운영지침서', desc:'현장검사 분야 운영 전반에 관한 지침서',
+      docInfo:{docNo:'PO-1-01-01', version:'2025-08', lastRevised:'2025.08.20'},
+      pages:[
       {id:'p0', title:'표지 및 작성·개정 이력', html:LOADING_HTML},
       {id:'p1', title:'목차', html:LOADING_HTML},
       {id:'p2', title:'현장검사 분야 요약 – 원내 현장검사 목록', html:LOADING_HTML},
@@ -1997,7 +2005,9 @@ function getDefaultRooms(){
       {id:'p8', title:'인력 및 안전 – 사용자 교육·감염관리 지침', html:LOADING_HTML},
       {id:'p9', title:'[별첨] 변경기록 및 현장검사위원회 조직', html:LOADING_HTML}
     ]},
-    { id:'room2', name:'현장검사 검사지침서', desc:'각 검사 항목별 세부 검사 지침서', pages:[
+    { id:'room2', name:'현장검사 검사지침서', desc:'각 검사 항목별 세부 검사 지침서',
+      docInfo:{docNo:'PO-1-01-02', version:'2025-03', lastRevised:'2025.03.10'},
+      pages:[
       {id:'room2_p0', title:'표지 및 목차', html:LOADING_HTML},
       {id:'room2_p1', title:'Prothrombin time - POCT(INR) - L8451', html:LOADING_HTML},
       {id:'room2_p2', title:'ABGA (RAPIDPoint 500/500e) (L8428,L8429,L8445,L8446)', html:LOADING_HTML},
@@ -2160,11 +2170,12 @@ function updateUIForRole(){
   // 사용자 이름 표시
   const userEl = document.getElementById('topbar-username');
   if(userEl) userEl.textContent = currentUser + (isAdminLoggedIn ? ' 👑' : '');
-  // 모바일 하단 네비 관리자 버튼
-  const mEditBtn  = document.getElementById('mobile-edit-btn');
-  const mAdminBtn = document.getElementById('mobile-admin-btn');
-  if(mEditBtn)  mEditBtn.style.display  = isAdminLoggedIn ? 'flex' : 'none';
-  if(mAdminBtn) mAdminBtn.style.display = isAdminLoggedIn ? 'flex' : 'none';
+  // 모바일 하단 네비: 목록/열람만 유지 (편집/관리자 버튼 없음)
+  // 새 지침서 추가 버튼: 관리자만 표시
+  const sbAddBtn   = document.getElementById('sb-add-room-btn');
+  const mtocAddBtn = document.getElementById('mtoc-add-room-btn');
+  if(sbAddBtn)   sbAddBtn.style.display   = isAdminLoggedIn ? '' : 'none';
+  if(mtocAddBtn) mtocAddBtn.style.display = isAdminLoggedIn ? '' : 'none';
 }
 
 
@@ -2351,25 +2362,28 @@ function renderMobileTOC(){
   S.rooms.forEach((room, ri) => {
     const card = document.createElement('div');
     card.className = 'mtoc-room-card';
-    // 방 제목 (클릭 시 접기/펼치기)
     const titleEl = document.createElement('div');
     titleEl.className = 'mtoc-room-title' + (ri === 0 ? ' open' : '');
     const icons = ['📋','🔬','📊','🛠️','📁'];
     titleEl.innerHTML = `<span>${icons[ri % icons.length]}</span><span>${room.name}</span><span class="arrow">▶</span>`;
-    titleEl.onclick = function(){
-      this.classList.toggle('open');
-    };
-    // 페이지 목록
+    titleEl.onclick = function(){ this.classList.toggle('open'); };
     const listEl = document.createElement('div');
     listEl.className = 'mtoc-page-list';
-    room.pages.forEach((page, pi) => {
-      const hasSign = S.signPageConfig && S.signPageConfig[room.id] &&
-                      S.signPageConfig[room.id].includes(page.id);
+    const signPageIds = (S.signPageConfig && S.signPageConfig[room.id]) || [];
+    let num = 0;
+    room.pages.forEach((page) => {
+      const isSign = signPageIds.includes(page.id);
       const item = document.createElement('div');
-      item.className = 'mtoc-page-item';
-      item.innerHTML = `<span class="pg-icon">${pi + 1}</span><span style="flex:1">${page.title}</span>${hasSign ? '<span class="pg-sign-badge">✍️서명</span>' : ''}`;
+      if(isSign){
+        // 서명 페이지: 넘버링 없이 들여쓰기 + 작은 글씨 (웹 목차와 동일)
+        item.className = 'mtoc-page-item mtoc-page-sign';
+        item.innerHTML = `<span class="pg-icon" style="color:#9ABFB0;font-size:10px">↳</span><span style="flex:1;font-size:11px;color:#888">✍️ 서명</span>`;
+      } else {
+        num++;
+        item.className = 'mtoc-page-item';
+        item.innerHTML = `<span class="pg-icon">${num}</span><span style="flex:1">${page.title}</span>`;
+      }
       item.onclick = function(){
-        // 지침서로 이동
         currentRoomId = room.id;
         showMobilePage(page.id);
       };
@@ -2629,6 +2643,7 @@ function renderRoomTabs(){
 function switchRoom(roomId){
   currentRoomId = roomId;
   renderAll();
+  renderDocInfo();
 }
 
 function currentRoom(){ return S.rooms.find(r=>r.id===currentRoomId); }
@@ -2652,22 +2667,51 @@ function renderRoomList(){
   `).join('');
 }
 
-function addRoom(){
-  const name = document.getElementById('new-room-name').value.trim();
-  if(!name){ toast('방 이름을 입력하세요.','error'); return; }
-  const id = 'room_'+Date.now();
+function openAddRoomModal(){
+  if(!isAdminLoggedIn){ toast('관리자만 지침서를 추가할 수 있습니다.','error'); return; }
+  const nameEl = document.getElementById('add-room-name');
+  const docnoEl = document.getElementById('add-room-docno');
+  if(nameEl) nameEl.value = '';
+  if(docnoEl) docnoEl.value = '';
+  document.getElementById('add-room-modal').classList.add('open');
+  setTimeout(()=>{ if(nameEl) nameEl.focus(); }, 100);
+}
+
+function submitAddRoom(){
+  const name  = (document.getElementById('add-room-name')||{}).value?.trim();
+  const docno = (document.getElementById('add-room-docno')||{}).value?.trim();
+  if(!name){ toast('지침서명을 입력하세요.','error'); return; }
+
+  const roomId  = 'room_'+Date.now();
+  const pageId  = 'pg_'+Date.now();
+  // 최소 HTML — Firebase 용량 최소화
+  const initHtml = `<h1>${name}</h1>`;
+
   S.rooms.push({
-    id, name,
-    desc: document.getElementById('new-room-desc').value.trim(),
-    pages:[{id:'pg_'+Date.now(),title:name+' 표지',html:`<div class="doc-title-block"><h1>${name}</h1></div><p>이 방에 내용을 추가하세요.</p>`}]
+    id: roomId,
+    name,
+    desc: '',
+    docInfo: { docNo: docno || '', version: '', lastRevised: '' },
+    pages:[{ id: pageId, title: name+' 표지', html: initHtml }]
   });
-  // 서명페이지 설정 초기화
   if(!S.signPageConfig) S.signPageConfig = {};
-  S.signPageConfig[id] = [];
-  document.getElementById('new-room-name').value='';
-  document.getElementById('new-room-desc').value='';
-  currentRoomId = id;
-  saveState(); renderAll(); toast('방이 추가되었습니다.','success');
+  S.signPageConfig[roomId] = [];
+
+  closeModal('add-room-modal');
+  currentRoomId = roomId;
+
+  // 메타 + 해당 페이지만 Firebase 저장 (전체 저장 X)
+  saveState();
+  if(window.fbSaveMetaOnly) window.fbSaveMetaOnly();
+  if(window.fbSavePage) window.fbSavePage(roomId, pageId, S.rooms[S.rooms.length-1].pages[0]);
+
+  renderAll();
+  toast('📚 '+name+' 지침서가 추가되었습니다.','success');
+}
+
+// 구버전 호환 (편집탭 addRoom 인라인 입력 방식)
+function addRoom(){
+  openAddRoomModal();
 }
 
 function deleteRoom(roomId){
@@ -2727,8 +2771,9 @@ const NUM_PX      = 28;
 const A4_CONTENT_H = A4_H_PX - A4_PAD_PX * 2 - HDR_PX - NUM_PX;
 
 function makePageHeaderHtml(roomName){
-  const docNo = document.getElementById('di-docno')?.textContent || 'PO-1-01-01';
-  const ver   = document.getElementById('di-version')?.textContent || 'v2025-08';
+  const _roomDocInfo = (currentRoom()&&currentRoom().docInfo)||{};
+  const docNo = _roomDocInfo.docNo    || '';
+  const ver   = _roomDocInfo.version  || '';
   return `<div class="page-header-bar">
     <span class="ph-title">이대서울병원 진단검사의학과 &nbsp;|&nbsp; ${roomName}</span>
     <span class="ph-meta">문서번호: ${docNo} &nbsp;|&nbsp; ${ver}</span>
@@ -3572,18 +3617,13 @@ async function compressAndUploadImage(dataUrl, divId){
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
 
-      // PNG 투명 배경 감지
-      const isPNG = dataUrl.startsWith('data:image/png');
-      const hasTransparency = isPNG; // PNG는 투명도 보존
-
-      if(!hasTransparency){
-        // JPEG: 흰 배경 채우기
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
-      }
+      // 항상 흰 배경 + JPEG 0.72로 압축 (PNG도 포함)
+      // → Cloudinary 업로드 실패 시 fallback도 JPEG로 용량 최소화
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
       ctx.drawImage(img, 0, 0, w, h);
 
-      // 업로드 중 표시 - 편집창 위에 오버레이로 표시
+      // 업로드 중 표시
       const loadingId = 'img-uploading-'+Date.now();
       const loadingEl = document.createElement('div');
       loadingEl.id = loadingId;
@@ -3591,13 +3631,12 @@ async function compressAndUploadImage(dataUrl, divId){
       loadingEl.textContent = '☁️ 이미지 업로드 중...';
       document.body.appendChild(loadingEl);
 
-      // PNG는 PNG로, 나머지는 JPEG로
-      const mimeType = hasTransparency ? 'image/png' : 'image/jpeg';
-      const quality  = hasTransparency ? 1.0 : 0.75;
-      const ext      = hasTransparency ? 'png' : 'jpg';
+      // JPEG로 통일 (PNG quality 파라미터 무시 문제 해결)
+      const mimeType = 'image/jpeg';
+      const quality  = 0.72;
+      const ext      = 'jpg';
 
       canvas.toBlob(async (blob)=>{
-        // 로딩 표시 제거
         const el = document.getElementById(loadingId);
         if(el) el.remove();
 
@@ -3607,11 +3646,14 @@ async function compressAndUploadImage(dataUrl, divId){
         }
 
         if(url){
-          if(typeof toast === 'function') toast('☁️ 이미지 Cloudinary 업로드 완료!', 'success');
+          if(typeof toast === 'function') toast('☁️ 이미지 업로드 완료!', 'success');
           resolve(url);
         } else {
-          if(typeof toast === 'function') toast('⚠️ 업로드 실패 — 로컬 저장으로 대체', 'warn');
-          resolve(canvas.toDataURL(mimeType, quality));
+          // fallback: JPEG Base64 — PNG 무압축 문제 해결
+          const fallbackUrl = canvas.toDataURL(mimeType, quality);
+          const sizeKB = Math.round(fallbackUrl.length * 0.75 / 1024);
+          if(typeof toast === 'function') toast(`⚠️ 서버 업로드 실패 — 로컬 저장 (${sizeKB}KB). Cloudinary preset을 확인하세요.`, 'warn');
+          resolve(fallbackUrl);
         }
       }, mimeType, quality);
     };
@@ -5671,22 +5713,23 @@ function applyForeColor(sel){
 // 문서 버전 정보 (topbar 동적 표시)
 // ═══════════════════════════════════════════════════════
 function renderDocInfo(){
-  if(!S.docInfo) S.docInfo = {docNo:'PO-1-01-01',version:'2025-08',lastRevised:'2025.08.20'};
-  const d = S.docInfo;
+  const room = currentRoom();
+  if(room && !room.docInfo) room.docInfo = {docNo:'', version:'', lastRevised:''};
+  const d = (room && room.docInfo) || {docNo:'', version:'', lastRevised:''};
   const setT = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-  // topbar
-  setT('di-docno', d.docNo);
-  setT('di-version', d.version);
-  setT('di-revised', d.lastRevised);
-  // 관리자 카드
-  setT('admin-di-docno', d.docNo||'—');
-  setT('admin-di-version', d.version||'—');
-  setT('admin-di-revised', d.lastRevised||'—');
+  setT('di-docno',   d.docNo      || '');
+  setT('di-version', d.version    || '');
+  setT('di-revised', d.lastRevised|| '');
+  setT('admin-di-docno',   d.docNo      || '—');
+  setT('admin-di-version', d.version    || '—');
+  setT('admin-di-revised', d.lastRevised|| '—');
 }
 
 function openDocInfoModal(){
-  if(!S.docInfo) S.docInfo = {docNo:'PO-1-01-01',version:'2025-08',lastRevised:'2025.08.20'};
-  const d = S.docInfo;
+  const room = currentRoom();
+  if(!room){ toast('지침서를 먼저 선택하세요.','error'); return; }
+  if(!room.docInfo) room.docInfo = {docNo:'', version:'', lastRevised:''};
+  const d = room.docInfo;
   document.getElementById('di-input-docno').value = d.docNo || '';
   document.getElementById('di-input-version').value = d.version || '';
   document.getElementById('di-input-revised').value = d.lastRevised || '';
@@ -5694,11 +5737,14 @@ function openDocInfoModal(){
 }
 
 function saveDocInfo(){
-  if(!S.docInfo) S.docInfo = {};
-  S.docInfo.docNo = document.getElementById('di-input-docno').value.trim();
-  S.docInfo.version = document.getElementById('di-input-version').value.trim();
-  S.docInfo.lastRevised = document.getElementById('di-input-revised').value.trim();
+  const room = currentRoom();
+  if(!room){ toast('지침서를 먼저 선택하세요.','error'); return; }
+  if(!room.docInfo) room.docInfo = {};
+  room.docInfo.docNo       = document.getElementById('di-input-docno').value.trim();
+  room.docInfo.version     = document.getElementById('di-input-version').value.trim();
+  room.docInfo.lastRevised = document.getElementById('di-input-revised').value.trim();
   saveState();
+  if(window.fbSaveMetaOnly) window.fbSaveMetaOnly();
   renderDocInfo();
   closeModal('docinfo-modal');
   toast('문서 정보가 저장되었습니다.','success');
