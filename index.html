@@ -456,7 +456,8 @@ textarea{resize:vertical}
 .doc-hdr{background:linear-gradient(135deg,#003D2B,var(--navy2));color:#fff;border-radius:var(--radius2);padding:20px 24px;margin-bottom:16px;box-shadow:var(--shadow)}
 .doc-hdr h1{font-size:20px;font-weight:700;margin-bottom:5px}
 .doc-hdr p{font-size:12px;opacity:.8}
-.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:hidden}
+.doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:auto}
+.a4-page-wrap{max-width:100%;overflow-x:auto;}
 .a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
 .a4-page p{margin:0 0 9px;line-height:1.75;font-size:10.5pt;}
@@ -2859,9 +2860,13 @@ function renderTOC(){
 }
 
 function scrollToPage(pageId){
+  showMainTab('tab-viewer', document.querySelector('.tnav'));
+  // 자식 페이지: hr[data-child-id] 위치로 스크롤
+  const childHr = document.querySelector(`hr[data-child-id="${pageId}"]`);
+  if(childHr){ childHr.scrollIntoView({behavior:'smooth',block:'start'}); return; }
+  // 일반 페이지
   const el = document.getElementById('a4page_'+pageId);
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-  showMainTab('tab-viewer', document.querySelector('.tnav'));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3070,7 +3075,7 @@ function renderViewerPages(){
     const children = room.pages.filter(c=>c.parentId===page.id);
     let fullHtml = page.html;
     children.forEach(c=>{
-      fullHtml += `<hr style="border:none;border-top:2px dashed #9ABFB0;margin:24px 0">` + c.html;
+      fullHtml += `<hr style="border:none;border-top:1px solid #e0ede8;margin:20px 0" data-child-id="${c.id}">` + c.html;
     });
     tmp.innerHTML = fullHtml;
     const nodes = Array.from(tmp.childNodes);
