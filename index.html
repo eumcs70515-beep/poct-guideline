@@ -490,7 +490,7 @@ textarea{resize:vertical}
 .a4-page .page-header-bar .ph-title{font-size:13pt;font-weight:700;color:#00583F;}
 .a4-page .page-header-bar .ph-meta{font-size:8pt;color:#888}
 .a4-page-content{width:100%;}
-.a4-page font{font-size:inherit;}
+
 .a4-page .doc-title-block{text-align:center;margin-bottom:20px}
 .a4-page .doc-title-block h1{font-size:20pt;border:none}
 .a4-page[contenteditable=true]{outline:none}
@@ -1782,10 +1782,12 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <!-- 1행: 텍스트 서식 + 목록 + 글자색 + 이미지 + 검색 -->
       <div style="padding:5px 10px;display:flex;gap:3px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border2)">
         <!-- 글자 크기 -->
-        <select onchange="editorCmd('edit-content-div','fontSize',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
+        <select onchange="editorSetFontSize('edit-content-div',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
           <option value="">크기</option>
-          <option value="1">8pt</option><option value="2">10pt</option><option value="3">12pt</option>
-          <option value="4">14pt</option><option value="5">18pt</option><option value="6">24pt</option>
+          <option value="8pt">8pt</option><option value="9pt">9pt</option><option value="10pt">10pt</option>
+          <option value="10.5pt">10.5pt</option><option value="11pt">11pt</option><option value="12pt">12pt</option>
+          <option value="14pt">14pt</option><option value="16pt">16pt</option><option value="18pt">18pt</option>
+          <option value="24pt">24pt</option>
         </select>
         <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
         <!-- 기본 서식 -->
@@ -3693,6 +3695,41 @@ function editorCmd(divId, cmd, val){
   const div = document.getElementById(divId); if(!div) return;
   div.focus();
   document.execCommand(cmd, false, val||null);
+}
+function editorSetFontSize(divId, size){
+  if(!size) return;
+  const div = document.getElementById(divId); if(!div) return;
+  div.focus();
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if(range.collapsed){
+    // 커서만 있을 때: 다음 입력에 적용되도록 execCommand 병행
+    document.execCommand('fontSize', false, '3');
+    // font 태그를 span으로 교체
+    div.querySelectorAll('font[size]').forEach(f => {
+      const span = document.createElement('span');
+      span.style.fontSize = size;
+      while(f.firstChild) span.appendChild(f.firstChild);
+      f.parentNode.replaceChild(span, f);
+    });
+  } else {
+    // 선택 영역에 span으로 감싸기
+    const span = document.createElement('span');
+    span.style.fontSize = size;
+    try {
+      range.surroundContents(span);
+    } catch(e) {
+      // 부분 선택인 경우 extractContents 방식
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+    }
+    sel.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    sel.addRange(newRange);
+  }
 }
 function editorForeColor(divId, sel){
   if(!sel.value) return;
