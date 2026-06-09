@@ -496,7 +496,7 @@ textarea{resize:vertical}
 .a4-page[contenteditable=true]{outline:none}
 .edit-mode-bar{background:var(--navy2);color:#fff;padding:8px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
 .page-edit-badge{position:absolute;top:8px;right:8px;background:var(--gold);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
-.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+.a4-page-wrap{position:relative;display:flex;flex-direction:column;align-items:center;overflow-x:auto;overflow-y:visible}
 .page-controls{display:flex;gap:6px;margin-bottom:8px;justify-content:center;width:210mm}
 /* 서명 페이지 임베드 스타일 */
 .page-sign-section{background:#EAF7F0;border:2px solid var(--navy2);border-radius:var(--radius);padding:14px;margin-top:16px;font-size:10pt}
@@ -1026,27 +1026,27 @@ table img{ max-width:100%; height:auto; }
 .hl-gray{
   background:#f5f5f5; border-left:4px solid #9e9e9e;
   border-radius:4px; padding:10px 14px; margin:8px 0;
-  font-size:10.5pt; line-height:1.6;
+  line-height:1.6;
 }
 .hl-red{
   background:#fff0f0; border-left:4px solid #e53935;
   border-radius:4px; padding:10px 14px; margin:8px 0;
-  font-size:10.5pt; line-height:1.6;
+  line-height:1.6;
 }
 .hl-yellow{
   background:#fffde7; border-left:4px solid #f9a825;
   border-radius:4px; padding:10px 14px; margin:8px 0;
-  font-size:10.5pt; line-height:1.6;
+  line-height:1.6;
 }
 .hl-green{
   background:#f0faf6; border-left:4px solid #00583F;
   border-radius:4px; padding:10px 14px; margin:8px 0;
-  font-size:10.5pt; line-height:1.6;
+  line-height:1.6;
 }
 .hl-blue{
   background:#e3f2fd; border-left:4px solid #1565c0;
   border-radius:4px; padding:10px 14px; margin:8px 0;
-  font-size:10.5pt; line-height:1.6;
+  line-height:1.6;
 }
 </style>
 <script>
@@ -1652,7 +1652,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
 </div>
 
 <!-- 표 삽입 모달 -->
-<div class="modal-overlay" id="insert-table-modal" onclick="if(event.target===this)closeModal('insert-table-modal')">
+<div class="modal-overlay" id="insert-table-modal" style="z-index:600" onclick="if(event.target===this)closeModal('insert-table-modal')">
   <div class="modal" style="max-width:320px">
     <h2>⊞ 표 삽입</h2>
     <div class="form-grid" style="gap:12px;margin:16px 0">
@@ -1815,6 +1815,17 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
           <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
           <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
         </select>
+        <!-- 형광펜(글자 배경색) -->
+        <select onchange="editorBackColor('edit-content-div',this);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px" title="형광펜">
+          <option value="">🖊️ 형광펜</option>
+          <option value="#FFFF00">🟡 노랑</option>
+          <option value="#90EE90">🟢 초록</option>
+          <option value="#ADD8E6">🔵 하늘</option>
+          <option value="#FFB6C1">🔴 분홍</option>
+          <option value="#FFA500">🟠 주황</option>
+          <option value="#E0E0E0">⬜ 회색</option>
+          <option value="transparent">✕ 제거</option>
+        </select>
         <button class="btn btn-xs" onclick="editorCmd('edit-content-div','removeFormat')" title="서식 제거">✕서식</button>
         <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
         <!-- 수평선 -->
@@ -1849,6 +1860,26 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
           <option value="orange">▤ 주황</option>
           <option value="purple">▤ 보라</option>
         </select>
+        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+        <!-- 가로선 -->
+        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">선:</span>
+        <select onchange="editorInsertHRStyle('edit-content-div',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px" title="가로선 삽입">
+          <option value="">가로선</option>
+          <option value="solid">─ 실선</option>
+          <option value="dashed">- - 점선</option>
+          <option value="double">═ 이중선</option>
+          <option value="bold">━ 굵은선</option>
+          <option value="green">─ 초록선</option>
+        </select>
+        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+        <!-- 상자 -->
+        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">상자:</span>
+        <button class="btn btn-xs" onclick="insertBox('solid')" style="border:2px solid #333;color:#333" title="실선 상자">□ 실선</button>
+        <button class="btn btn-xs" onclick="insertBox('dashed')" style="border:2px dashed #666;color:#555" title="점선 상자">⬚ 점선</button>
+        <button class="btn btn-xs" onclick="insertBox('shadow')" style="border:1px solid #bbb;box-shadow:2px 2px 5px rgba(0,0,0,.2);color:#333" title="그림자 상자">▣ 그림자</button>
+        <button class="btn btn-xs" onclick="insertBox('green')" style="border:2px solid #00583F;color:#00583F;background:#f0faf5" title="초록 상자">□ 초록</button>
+        <button class="btn btn-xs" onclick="insertBox('blue')" style="border:2px solid #1565c0;color:#1565c0;background:#e3f2fd" title="파랑 상자">□ 파랑</button>
+        <button class="btn btn-xs" onclick="insertBox('red')" style="border:2px solid #c62828;color:#c62828;background:#fff0f0" title="빨강 상자">□ 빨강</button>
         <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
         <!-- 강조 박스 -->
         <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">강조:</span>
@@ -2280,21 +2311,29 @@ function insertHighlight(type){
 function removeHighlight(){
   const sel = window.getSelection();
   if(!sel || !sel.anchorNode) return;
+  const editor = document.getElementById('edit-content-div');
   let node = sel.anchorNode;
-  // 강조 블록 찾기
+  // 텍스트노드면 부모로
   while(node && node.nodeType !== 1) node = node.parentNode;
-  while(node && !['hl-gray','hl-red','hl-yellow','hl-green','hl-blue'].some(c=>node.classList && node.classList.contains(c))){
+  // hl- 클래스 또는 data-box 블록을 찾되 편집 영역 밖으로 나가지 않음
+  const isTarget = n =>
+    n && n !== editor && n !== document.body && (
+      ['hl-gray','hl-red','hl-yellow','hl-green','hl-blue'].some(c => n.classList && n.classList.contains(c)) ||
+      n.dataset && n.dataset.box === '1'
+    );
+  while(node && !isTarget(node)){
+    if(node === editor || node === document.body){ node = null; break; }
     node = node.parentNode;
   }
-  if(!node || node === document.body){
-    toast('강조 블록 안에 커서를 놓으세요.','warn');
+  if(!node){
+    toast('강조/상자 블록 안에 커서를 놓고 누르세요.','warn');
     return;
   }
-  // 블록 내용을 꺼내서 교체
+  // 블록 내용만 꺼내서 교체 (내용 보존)
   const frag = document.createDocumentFragment();
   while(node.firstChild) frag.appendChild(node.firstChild);
   node.parentNode.replaceChild(frag, node);
-  toast('강조 블록 제거됨','success');
+  toast('블록이 제거되었습니다.','success');
 }
 
 // ── 세로선 강조 박스 삽입 ──────────────────────────────
@@ -2303,7 +2342,7 @@ function insertSidebarBox(divId){
   const div = document.getElementById(targetId);
   if(!div) return;
   div.focus();
-  const html = `<div style="margin:8px 0;padding:10px 14px;background:#f0faf5;border-left:4px solid #00583F;border-radius:0 6px 6px 0;line-height:1.75;font-size:10.5pt;">내용을 입력하세요</div><p></p>`;
+  const html = `<div data-box="1" style="margin:8px 0;padding:10px 14px;background:#f0faf5;border-left:4px solid #00583F;border-radius:0 6px 6px 0;line-height:1.75;">내용을 입력하세요</div><p></p>`;
   document.execCommand('insertHTML', false, html);
 }
 
@@ -3004,8 +3043,8 @@ function splitNodesToGroups(nodes, contentW){
   function procTable(tableNode){
     const tH = measureNodeH(tableNode, contentW);
     const avH = A4_CONTENT_H - gh;
-    // 표가 현재 페이지에 안 들어오거나 전체 높이의 55% 초과 → tr 단위 분할
-    if(tH > avH || tH > A4_CONTENT_H * 0.55){
+    // 표가 현재 페이지에 실제로 안 들어올 때만 tr 단위 분할
+    if(tH > avH){
       const tgs = splitTableRows(tableNode, contentW, Math.max(avH, 80));
       tgs.forEach((tg, i) => {
         const ti = {type:'table', style:tg.style, thead:tg.thead, rows:tg.rows};
@@ -3658,6 +3697,45 @@ function editorCmd(divId, cmd, val){
 function editorForeColor(divId, sel){
   if(!sel.value) return;
   editorCmd(divId, 'foreColor', sel.value);
+}
+function editorBackColor(divId, sel){
+  if(!sel.value) return;
+  const div = document.getElementById(divId); if(!div) return;
+  div.focus();
+  if(sel.value === 'transparent'){
+    // 배경색 제거: hiliteColor를 inherit으로
+    document.execCommand('hiliteColor', false, 'transparent');
+  } else {
+    document.execCommand('hiliteColor', false, sel.value);
+  }
+}
+function editorInsertHRStyle(divId, style){
+  if(!style) return;
+  const div = document.getElementById(divId); if(!div) return;
+  div.focus();
+  const styles = {
+    solid:  'border:none;border-top:1px solid #9ABFB0;margin:12px 0',
+    dashed: 'border:none;border-top:2px dashed #aaa;margin:12px 0',
+    double: 'border:none;border-top:4px double #888;margin:12px 0',
+    bold:   'border:none;border-top:3px solid #333;margin:12px 0',
+    green:  'border:none;border-top:2px solid #00583F;margin:12px 0',
+  };
+  const css = styles[style] || styles.solid;
+  document.execCommand('insertHTML', false, `<hr style="${css}"><p><br></p>`);
+}
+function insertBox(type){
+  const div = document.getElementById('edit-content-div'); if(!div) return;
+  div.focus();
+  const styles = {
+    solid:  'border:2px solid #333;border-radius:4px;padding:10px 14px;margin:8px 0;background:#fff;',
+    dashed: 'border:2px dashed #666;border-radius:4px;padding:10px 14px;margin:8px 0;background:#fafafa;',
+    shadow: 'border:1px solid #ccc;border-radius:6px;padding:10px 14px;margin:8px 0;background:#fff;box-shadow:2px 2px 8px rgba(0,0,0,.15);',
+    green:  'border:2px solid #00583F;border-radius:4px;padding:10px 14px;margin:8px 0;background:#f0faf5;color:#1a3a2a;',
+    blue:   'border:2px solid #1565c0;border-radius:4px;padding:10px 14px;margin:8px 0;background:#e3f2fd;color:#0d3c7a;',
+    red:    'border:2px solid #c62828;border-radius:4px;padding:10px 14px;margin:8px 0;background:#fff0f0;color:#7f0000;',
+  };
+  const css = styles[type] || styles.solid;
+  document.execCommand('insertHTML', false, `<div data-box="1" style="${css}">내용을 입력하세요.</div><p><br></p>`);
 }
 let _insertTableTargetDiv = null;
 function editorInsertTable(divId){
@@ -5366,6 +5444,7 @@ function clearCanvas(id){
 // ═══════════════════════════════════════════════════════
 // MODAL
 // ═══════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
 // ─── 편집 모달 안전 닫기 ───────────────────────────────
