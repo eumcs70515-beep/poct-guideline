@@ -354,16 +354,14 @@
     // ★ 서명 시트 데이터 — 렌더링 완료 후 백그라운드 로드
     if(window.fbLoadAllSignSheets){
       window.fbLoadAllSignSheets().then(sheets=>{
-        if(typeof S !== 'undefined' && sheets && Object.keys(sheets).length > 0){
+        if(typeof S !== 'undefined' && sheets){
           S.signSheets = sheets;
           // renderViewerPages의 setTimeout(50ms) 완료를 기다린 후 initSignSheet 호출
           setTimeout(()=>{
             if(typeof initSignSheet === 'function'){
-              Object.keys(sheets).forEach(pid => {
-                // bot-tbody DOM이 실제로 존재할 때만 호출
-                if(document.getElementById('bot-tbody-'+pid) || document.querySelector(`.new-sign-sheet[data-page-id="${pid}"]`)){
-                  initSignSheet(pid);
-                }
+              // 현재 렌더링된 모든 서명 시트에 반영 (initSignSheet 내부에서 DOM 존재 여부 체크)
+              document.querySelectorAll('.new-sign-sheet[data-page-id]').forEach(el=>{
+                initSignSheet(el.dataset.pageId);
               });
             }
           }, 300);
@@ -1356,6 +1354,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
                       <option value="#1a4080">🔵 파랑</option><option value="#8b1a1a">🔴 빨강</option>
                       <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
                       <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
+              <option value="#ffffff">⚪ 흰색</option>
                     </select>
                     <select onchange="editorBackColor('new-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:72px" title="형광펜">
                       <option value="">🖊️ 형광펜</option>
@@ -1375,10 +1374,13 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
                   <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center">
                     <span style="font-size:11px;color:#666;margin-right:1px">표:</span>
                     <button class="btn btn-xs" onclick="editorInsertTable('new-content-div')" style="padding:2px 4px">⊞삽입</button>
-                    <button class="btn btn-xs" onclick="tableAddRow()" style="padding:2px 4px">➕행</button>
-                    <button class="btn btn-xs" onclick="tableAddCol()" style="padding:2px 4px">➕열</button>
-                    <button class="btn btn-xs" onclick="tableDelRow()" style="padding:2px 4px">➖행</button>
-                    <button class="btn btn-xs" onclick="tableDelCol()" style="padding:2px 4px">➖열</button>
+                    <select onchange="tableRowColAction(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="행/열 추가·삭제">
+                      <option value="">행/열</option>
+                      <option value="addRow">➕행 추가</option>
+                      <option value="addCol">➕열 추가</option>
+                      <option value="delRow">➖행 삭제</option>
+                      <option value="delCol">➖열 삭제</option>
+                    </select>
                     <button class="btn btn-xs" onclick="tableMergeCells()" style="padding:2px 4px">병합</button>
                     <button class="btn btn-xs" onclick="tableUnmergeCells()" style="padding:2px 4px">해제</button>
                     <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
@@ -1386,6 +1388,30 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
                       <option value="blue">▤ 파랑</option><option value="gray">▤ 회색</option>
                       <option value="green">▤ 초록</option><option value="orange">▤ 주황</option>
                       <option value="purple">▤ 보라</option>
+                    </select>
+                    <select onchange="applyCellColor(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="선택한 칸 배경색">
+                      <option value="">칸색상</option>
+                      <option value="rgba(0,88,63,0.15)">🟩 초록</option>
+                      <option value="rgba(26,58,92,0.15)">🟦 파랑</option>
+                      <option value="rgba(230,81,0,0.15)">🟧 주황</option>
+                      <option value="rgba(106,27,154,0.15)">🟪 보라</option>
+                      <option value="rgba(55,71,79,0.15)">⬜ 회색</option>
+                      <option value="#ffffff">⬛ 흰색</option>
+                      <option value="none">✕ 제거</option>
+                    </select>
+                    <select onchange="applyCellBorder(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="선택한 칸 테두리">
+                      <option value="">테두리</option>
+                      <option value="all|#ffffff">전체-화이트</option>
+                      <option value="all|#999999">전체-그레이</option>
+                      <option value="top|#ffffff">위-화이트</option>
+                      <option value="top|#999999">위-그레이</option>
+                      <option value="bottom|#ffffff">아래-화이트</option>
+                      <option value="bottom|#999999">아래-그레이</option>
+                      <option value="left|#ffffff">왼쪽-화이트</option>
+                      <option value="left|#999999">왼쪽-그레이</option>
+                      <option value="right|#ffffff">오른쪽-화이트</option>
+                      <option value="right|#999999">오른쪽-그레이</option>
+                      <option value="none|">없음</option>
                     </select>
                     <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
                     <select onchange="editorInsertHRStyle('new-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="가로선">
@@ -1751,6 +1777,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
               <option value="#1a4080">🔵 파랑</option><option value="#8b1a1a">🔴 빨강</option>
               <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
               <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
+              <option value="#ffffff">⚪ 흰색</option>
             </select>
             <select onchange="editorBackColor('child-page-content',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:72px" title="형광펜">
               <option value="">🖊️ 형광펜</option>
@@ -1768,10 +1795,13 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
           <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center">
             <span style="font-size:11px;color:#666;margin-right:1px">표:</span>
             <button class="btn btn-xs" onclick="editorInsertTable('child-page-content')" style="padding:2px 4px">⊞삽입</button>
-            <button class="btn btn-xs" onclick="tableAddRow()" style="padding:2px 4px">➕행</button>
-            <button class="btn btn-xs" onclick="tableAddCol()" style="padding:2px 4px">➕열</button>
-            <button class="btn btn-xs" onclick="tableDelRow()" style="padding:2px 4px">➖행</button>
-            <button class="btn btn-xs" onclick="tableDelCol()" style="padding:2px 4px">➖열</button>
+            <select onchange="tableRowColAction(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="행/열 추가·삭제">
+              <option value="">행/열</option>
+              <option value="addRow">➕행 추가</option>
+              <option value="addCol">➕열 추가</option>
+              <option value="delRow">➖행 삭제</option>
+              <option value="delCol">➖열 삭제</option>
+            </select>
             <button class="btn btn-xs" onclick="tableMergeCells()" style="padding:2px 4px">병합</button>
             <button class="btn btn-xs" onclick="tableUnmergeCells()" style="padding:2px 4px">해제</button>
             <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
@@ -1779,6 +1809,30 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
               <option value="green">▤ 초록</option><option value="blue">▤ 파랑</option>
               <option value="gray">▤ 회색</option><option value="orange">▤ 주황</option>
               <option value="purple">▤ 보라</option>
+            </select>
+            <select onchange="applyCellColor(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="선택한 칸 배경색">
+              <option value="">칸색상</option>
+              <option value="rgba(0,88,63,0.15)">🟩 초록</option>
+              <option value="rgba(26,58,92,0.15)">🟦 파랑</option>
+              <option value="rgba(230,81,0,0.15)">🟧 주황</option>
+              <option value="rgba(106,27,154,0.15)">🟪 보라</option>
+              <option value="rgba(55,71,79,0.15)">⬜ 회색</option>
+              <option value="#ffffff">⬛ 흰색</option>
+              <option value="none">✕ 제거</option>
+            </select>
+            <select onchange="applyCellBorder(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="선택한 칸 테두리">
+              <option value="">테두리</option>
+              <option value="all|#ffffff">전체-화이트</option>
+              <option value="all|#999999">전체-그레이</option>
+              <option value="top|#ffffff">위-화이트</option>
+              <option value="top|#999999">위-그레이</option>
+              <option value="bottom|#ffffff">아래-화이트</option>
+              <option value="bottom|#999999">아래-그레이</option>
+              <option value="left|#ffffff">왼쪽-화이트</option>
+              <option value="left|#999999">왼쪽-그레이</option>
+              <option value="right|#ffffff">오른쪽-화이트</option>
+              <option value="right|#999999">오른쪽-그레이</option>
+              <option value="none|">없음</option>
             </select>
             <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
             <select onchange="editorInsertHRStyle('child-page-content',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px">
@@ -1921,6 +1975,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
           <option value="#1a4080">🔵 파랑</option><option value="#8b1a1a">🔴 빨강</option>
           <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
           <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
+          <option value="#ffffff">⚪ 흰색</option>
         </select>
         <select onchange="editorBackColor('edit-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:72px" title="형광펜">
           <option value="">🖊️ 형광펜</option>
@@ -1942,10 +1997,13 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
       <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center">
         <span style="font-size:11px;color:#666;margin-right:1px">표:</span>
         <button class="btn btn-xs" onclick="editorInsertTable('edit-content-div')" title="표 삽입" style="padding:2px 4px">⊞삽입</button>
-        <button class="btn btn-xs" onclick="tableAddRow()" title="행 추가" style="padding:2px 4px">➕행</button>
-        <button class="btn btn-xs" onclick="tableAddCol()" title="열 추가" style="padding:2px 4px">➕열</button>
-        <button class="btn btn-xs" onclick="tableDelRow()" title="행 삭제" style="padding:2px 4px">➖행</button>
-        <button class="btn btn-xs" onclick="tableDelCol()" title="열 삭제" style="padding:2px 4px">➖열</button>
+        <select onchange="tableRowColAction(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="행/열 추가·삭제">
+          <option value="">행/열</option>
+          <option value="addRow">➕행 추가</option>
+          <option value="addCol">➕열 추가</option>
+          <option value="delRow">➖행 삭제</option>
+          <option value="delCol">➖열 삭제</option>
+        </select>
         <button class="btn btn-xs" onclick="tableMergeCells()" title="셀 병합" style="padding:2px 4px">병합</button>
         <button class="btn btn-xs" onclick="tableUnmergeCells()" title="병합 해제" style="padding:2px 4px">해제</button>
         <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
@@ -1953,6 +2011,30 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
           <option value="blue">▤ 파랑</option><option value="gray">▤ 회색</option>
           <option value="green">▤ 초록</option><option value="orange">▤ 주황</option>
           <option value="purple">▤ 보라</option>
+        </select>
+        <select onchange="applyCellColor(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="선택한 칸 배경색">
+          <option value="">칸색상</option>
+          <option value="rgba(0,88,63,0.15)">🟩 초록</option>
+          <option value="rgba(26,58,92,0.15)">🟦 파랑</option>
+          <option value="rgba(230,81,0,0.15)">🟧 주황</option>
+          <option value="rgba(106,27,154,0.15)">🟪 보라</option>
+          <option value="rgba(55,71,79,0.15)">⬜ 회색</option>
+          <option value="#ffffff">⬛ 흰색</option>
+          <option value="none">✕ 제거</option>
+        </select>
+        <select onchange="applyCellBorder(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px" title="선택한 칸 테두리">
+          <option value="">테두리</option>
+          <option value="all|#ffffff">전체-화이트</option>
+          <option value="all|#999999">전체-그레이</option>
+          <option value="top|#ffffff">위-화이트</option>
+          <option value="top|#999999">위-그레이</option>
+          <option value="bottom|#ffffff">아래-화이트</option>
+          <option value="bottom|#999999">아래-그레이</option>
+          <option value="left|#ffffff">왼쪽-화이트</option>
+          <option value="left|#999999">왼쪽-그레이</option>
+          <option value="right|#ffffff">오른쪽-화이트</option>
+          <option value="right|#999999">오른쪽-그레이</option>
+          <option value="none|">없음</option>
         </select>
         <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
         <select onchange="editorInsertHRStyle('edit-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="가로선">
@@ -3223,116 +3305,116 @@ const _subPageCache = {};
 function renderViewerPages(){
   const room = currentRoom(); if(!room) return;
   const container = document.getElementById('doc-pages-container');
+  // ★ 재렌더링 시 스크롤 위치 보존 (편집 후 맨 위로 튀는 현상 방지)
+  const mainContent = document.querySelector('.main-content');
+  const _savedScrollTop = mainContent ? mainContent.scrollTop : 0;
   container.innerHTML = '';
   const signPages = (S.signPageConfig && S.signPageConfig[currentRoomId]) || [];
   const contentW = Math.floor((210 - 18 - 18) * MM_TO_PX);
   let globalPageNum = 0;
   const allNums = [];
 
-  // 최상위 페이지만 렌더링 (자식은 부모 아래 이어붙임)
+  // 최상위 페이지 + 자식 페이지를 각각 독립된 A4 묶음으로 렌더링
   const topPages = room.pages.filter(p=>!p.parentId);
   topPages.forEach(page=>{
-    // 전체 HTML 파싱 (구버전 makeSignSectionHtml 제거)
-    const tmp = document.createElement('div');
-    // 자식 페이지 HTML 이어붙이기 (구분선 포함)
     const children = room.pages.filter(c=>c.parentId===page.id);
-    let fullHtml = page.html;
-    children.forEach(c=>{
-      fullHtml += `<hr style="border:none;border-top:1px solid #e0ede8;margin:20px 0" data-child-id="${c.id}">` + c.html;
-    });
-    tmp.innerHTML = fullHtml;
-    const nodes = Array.from(tmp.childNodes);
+    const docPages = [page, ...children];
 
-    // 노드 → 그룹 분할
-    const groups = splitNodesToGroups(nodes, contentW);
+    docPages.forEach(docPage=>{
+      const tmp = document.createElement('div');
+      tmp.innerHTML = docPage.html;
+      const nodes = Array.from(tmp.childNodes);
 
-    groups.forEach((items, subIdx)=>{
-      globalPageNum++;
-      const isFirst = subIdx === 0;
-      const wrap = document.createElement('div');
-      wrap.className = 'a4-page-wrap';
-      wrap.dataset.pageId = page.id;
+      // 노드 → 그룹 분할 (페이지마다 새로 시작 → 다른 페이지와 섞이지 않음)
+      const groups = splitNodesToGroups(nodes, contentW);
 
-      // buildGroupDOM 1회 호출 후 재사용 (하위 편집 버튼 + 콘텐츠 모두 사용)
-      const groupDOM = buildGroupDOM(items);
-      const tmpWrap = document.createElement('div');
-      tmpWrap.appendChild(groupDOM);
-      const childBtnsHtml = isAdminLoggedIn ? children.filter(c=>{
-        return tmpWrap.querySelector(`hr[data-child-id="${c.id}"]`) !== null;
-      }).map(c=>`<button class="btn btn-sm" onclick="openEditModal('${c.id}')" style="background:#E6F4EF;border-color:#9ABFB0;color:#1a3a2a">✏️ ${c.title}</button>`).join('') : '';
+      groups.forEach((items, subIdx)=>{
+        globalPageNum++;
+        const isFirst = subIdx === 0;
+        const wrap = document.createElement('div');
+        wrap.className = 'a4-page-wrap';
+        wrap.dataset.pageId = docPage.id;
 
-      const controlsHtml = `<div class="page-controls">
-          <span style="font-size:11px;color:#666;flex:1">${page.title}${groups.length>1?' ('+(subIdx+1)+'/'+groups.length+')':''}</span>
-          <button class="btn btn-sm" onclick="printPage('${page.id}')" title="이 페이지만 인쇄">🖨️</button>
-          ${isAdminLoggedIn ? `
-          <button class="btn btn-sm" onclick="openEditModal('${page.id}')">✏️ 편집</button>
-          <button class="btn btn-sm btn-danger" onclick="deletePage('${page.id}')">🗑️ 삭제</button>` : ''}
-          ${childBtnsHtml}
-         </div>`;
+        // buildGroupDOM 1회 호출 후 재사용
+        const groupDOM = buildGroupDOM(items);
+        const tmpWrap = document.createElement('div');
+        tmpWrap.appendChild(groupDOM);
 
-      const pageDiv = document.createElement('div');
-      pageDiv.className = 'a4-page';
-      // ★ overflow:hidden 제거 — 내용이 잘리지 않음, 높이는 min-height로만
-      pageDiv.style.minHeight = '297mm';
-      if(isFirst) pageDiv.id = 'a4page_'+page.id;
-      pageDiv.innerHTML = makePageHeaderHtml(room.name);
+        const controlsHtml = `<div class="page-controls">
+            <span style="font-size:11px;color:#666;flex:1">${docPage.title}${groups.length>1?' ('+(subIdx+1)+'/'+groups.length+')':''}</span>
+            <button class="btn btn-sm" onclick="printPage('${docPage.id}')" title="이 페이지만 인쇄">🖨️</button>
+            ${isAdminLoggedIn ? `
+            <button class="btn btn-sm" onclick="openEditModal('${docPage.id}')">✏️ 편집</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePage('${docPage.id}')">🗑️ 삭제</button>` : ''}
+           </div>`;
 
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'a4-page-content';
-      if(isFirst) contentDiv.id = 'pagecontent_'+page.id;
-      contentDiv.appendChild(tmpWrap);
-      // 서브페이지 HTML 캐시 저장 (편집용)
-      _subPageCache[page.id+'_'+subIdx] = contentDiv.innerHTML;
-      pageDiv.appendChild(contentDiv);
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'a4-page';
+        // ★ overflow:hidden 제거 — 내용이 잘리지 않음, 높이는 min-height로만
+        pageDiv.style.minHeight = '297mm';
+        if(isFirst) pageDiv.id = 'a4page_'+docPage.id;
+        pageDiv.innerHTML = makePageHeaderHtml(room.name);
 
-      const numDiv = document.createElement('div');
-      numDiv.className = 'page-num';
-      numDiv.dataset.pn = globalPageNum;
-      pageDiv.appendChild(numDiv);
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'a4-page-content';
+        if(isFirst) contentDiv.id = 'pagecontent_'+docPage.id;
+        contentDiv.appendChild(tmpWrap);
+        // 서브페이지 HTML 캐시 저장 (편집용)
+        _subPageCache[docPage.id+'_'+subIdx] = contentDiv.innerHTML;
+        pageDiv.appendChild(contentDiv);
 
-      wrap.innerHTML = controlsHtml;
-      wrap.appendChild(pageDiv);
-      container.appendChild(wrap);
-      allNums.push(numDiv);
+        const numDiv = document.createElement('div');
+        numDiv.className = 'page-num';
+        numDiv.dataset.pn = globalPageNum;
+        pageDiv.appendChild(numDiv);
 
-      if(isFirst){
-        setTimeout(()=>{
-          initTableResize(document.getElementById('a4page_'+page.id));
-          // ★ 새 서명 시트 초기화 (S.signSheets 로드 여부와 무관하게 호출)
-          if(document.querySelector(`.new-sign-sheet[data-page-id="${page.id}"]`)){
-            initSignSheet(page.id);
-            // S.signSheets가 이미 로드된 경우 누적 서명 즉시 반영
-            if(S.signSheets && S.signSheets[page.id]){
-              renderBotRows(page.id);
+        wrap.innerHTML = controlsHtml;
+        wrap.appendChild(pageDiv);
+        container.appendChild(wrap);
+        allNums.push(numDiv);
+
+        if(isFirst){
+          setTimeout(()=>{
+            initTableResize(document.getElementById('a4page_'+docPage.id));
+            // ★ 새 서명 시트 초기화 (S.signSheets 로드 여부와 무관하게 호출)
+            if(document.querySelector(`.new-sign-sheet[data-page-id="${docPage.id}"]`)){
+              initSignSheet(docPage.id);
+              // S.signSheets가 이미 로드된 경우 누적 서명 즉시 반영
+              if(S.signSheets && S.signSheets[docPage.id]){
+                renderBotRows(docPage.id);
+              }
             }
-          }
-        }, 50);
+          }, 50);
+        }
+      });
+
+      // ★ 서명 페이지면 마지막 wrap 뒤에 pid별 독립 서명 UI 삽입
+      const isSignPage = signPages.includes(docPage.id);
+      if(isSignPage){
+        const wraps = container.querySelectorAll(`.a4-page-wrap[data-page-id="${docPage.id}"]`);
+        const lastWrap = wraps[wraps.length - 1];
+        if(lastWrap){
+          const pid = docPage.id;
+          const uid = 'signui_'+pid;
+          // 이미 있으면 제거 후 재생성
+          const existing = document.getElementById(uid);
+          if(existing) existing.remove();
+          const signUi = document.createElement('div');
+          signUi.id = uid;
+          signUi.style.cssText = 'width:210mm;margin:0 auto 20px';
+          signUi.innerHTML = buildSignUiHtml(pid);
+          lastWrap.after(signUi);
+          // 캔버스 이벤트 바인딩
+          setTimeout(()=>{ initCanvasSign('canvas_'+pid); }, 100);
+        }
       }
     });
-
-    // ★ 서명 페이지면 마지막 wrap 뒤에 pid별 독립 서명 UI 삽입
-    const isSignPage = signPages.includes(page.id);
-    if(isSignPage){
-      const wraps = container.querySelectorAll(`.a4-page-wrap[data-page-id="${page.id}"]`);
-      const lastWrap = wraps[wraps.length - 1];
-      if(lastWrap){
-        const pid = page.id;
-        const uid = 'signui_'+pid;
-        // 이미 있으면 제거 후 재생성
-        const existing = document.getElementById(uid);
-        if(existing) existing.remove();
-        const signUi = document.createElement('div');
-        signUi.id = uid;
-        signUi.style.cssText = 'width:210mm;margin:0 auto 20px';
-        signUi.innerHTML = buildSignUiHtml(pid);
-        lastWrap.after(signUi);
-        // 캔버스 이벤트 바인딩
-        setTimeout(()=>{ initCanvasSign('canvas_'+pid); }, 100);
-      }
-    }
   });
 
   allNums.forEach(n=>{ n.textContent = n.dataset.pn + ' / ' + globalPageNum; });
+
+  // ★ 보존했던 스크롤 위치 복원
+  if(mainContent) mainContent.scrollTop = _savedScrollTop;
 }
 
 // ── 페이지 내 서명란 표(재검토일/서명 형식)에 서명 자동 주입 ──
@@ -3775,11 +3857,11 @@ function saveEdit(){
 // 표 색상 프리셋 드롭다운용
 function applyTableColorPreset(val){
   const presets = {
-    green:  ['rgba(0,88,63,0.82)',   'rgba(0,88,63,0.08)',    '#fff'],
-    blue:   ['rgba(26,58,92,0.82)',  'rgba(26,58,92,0.08)',   '#fff'],
-    gray:   ['rgba(55,71,79,0.82)',  'rgba(55,71,79,0.08)',   '#fff'],
-    orange: ['rgba(230,81,0,0.82)',  'rgba(230,81,0,0.08)',   '#fff'],
-    purple: ['rgba(106,27,154,0.82)','rgba(106,27,154,0.08)', '#fff'],
+    green:  ['rgba(0,88,63,0.80)',   'rgba(0,88,63,0.08)',    '#fff'],
+    blue:   ['rgba(26,58,92,0.80)',  'rgba(26,58,92,0.08)',   '#fff'],
+    gray:   ['rgba(55,71,79,0.80)',  'rgba(55,71,79,0.08)',   '#fff'],
+    orange: ['rgba(230,81,0,0.80)',  'rgba(230,81,0,0.08)',   '#fff'],
+    purple: ['rgba(106,27,154,0.80)','rgba(106,27,154,0.08)', '#fff'],
   };
   if(!val || !presets[val]) return;
   applyTableColor(...presets[val]);
@@ -3815,6 +3897,15 @@ function editorSetFontSize(divId, size){
       f.parentNode.replaceChild(span, f);
     });
   } else {
+    // 표 셀 경계를 넘는 선택은 표 구조 손상 위험이 있어 차단
+    const closestCell = node => {
+      while(node && node.nodeType !== 1) node = node.parentNode;
+      return node ? node.closest('td,th') : null;
+    };
+    if(closestCell(range.startContainer) !== closestCell(range.endContainer)){
+      toast('표에서는 한 칸(셀) 안에서만 글자 크기를 변경할 수 있습니다.', 'warn');
+      return;
+    }
     // 선택 영역에 span으로 감싸기
     const span = document.createElement('span');
     span.style.fontSize = size;
@@ -3889,7 +3980,7 @@ function doInsertTable(){
   if(rows<1||cols<1){ toast('행·열 수는 1 이상이어야 합니다.','warn'); return; }
 
   // 이화그린 교차색 (라운드+흰선+투명헤더)
-  const HDR_BG  = 'rgba(0,88,63,0.82)';
+  const HDR_BG  = 'rgba(0,88,63,0.80)';
   const ODD_BG  = '#ffffff';
   const EVEN_BG = 'rgba(0,88,63,0.08)';
   const BORDER  = '1px solid #ffffff';
@@ -4285,6 +4376,41 @@ function tableUnmergeCells(){
     cell.after(td);
   }
   toast('병합 해제 완료','success');
+}
+
+// 행/열 추가·삭제 통합 드롭다운
+function tableRowColAction(val){
+  if(!val) return;
+  if(val === 'addRow') tableAddRow();
+  else if(val === 'addCol') tableAddCol();
+  else if(val === 'delRow') tableDelRow();
+  else if(val === 'delCol') tableDelCol();
+}
+
+// 선택한 칸 배경색 적용
+function applyCellColor(val){
+  if(!val) return;
+  const cell = getSelectedCell();
+  if(!cell){ toast('커서를 표 안에 놓고 클릭하세요.','warn'); return; }
+  cell.style.backgroundColor = (val === 'none') ? '' : val;
+}
+
+// 선택한 칸 테두리 적용 (방향|색상)
+function applyCellBorder(val){
+  if(!val) return;
+  const cell = getSelectedCell();
+  if(!cell){ toast('커서를 표 안에 놓고 클릭하세요.','warn'); return; }
+  const [side, color] = val.split('|');
+  if(side === 'none'){
+    cell.style.borderTop = cell.style.borderBottom = cell.style.borderLeft = cell.style.borderRight = 'none';
+    return;
+  }
+  const b = `1px solid ${color}`;
+  if(side === 'all') cell.style.border = b;
+  else if(side === 'top') cell.style.borderTop = b;
+  else if(side === 'bottom') cell.style.borderBottom = b;
+  else if(side === 'left') cell.style.borderLeft = b;
+  else if(side === 'right') cell.style.borderRight = b;
 }
 
 let _selectedImg = null;
@@ -5652,7 +5778,12 @@ function applyTableColor(headerBg, rowBg, borderColor){
   }
   node.style.border = 'none';
   // ① 헤더 행(th 포함 tr 또는 thead tr) 처리
-  const headerRows = node.querySelectorAll('thead tr, tr:has(th)');
+  let headerRows = node.querySelectorAll('thead tr, tr:has(th)');
+  if(headerRows.length === 0){
+    // th/thead가 없는 표(워드·엑셀 붙여넣기 등)는 첫 번째 행을 헤더로 간주
+    const firstTr = node.querySelector('tr');
+    if(firstTr) headerRows = [firstTr];
+  }
   headerRows.forEach(tr => {
     tr.querySelectorAll('th, td').forEach(cell => {
       cell.style.background = headerBg;
