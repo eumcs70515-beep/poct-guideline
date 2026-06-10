@@ -146,7 +146,7 @@
       const roomsMeta = S.rooms.map(r=>({
         id:r.id, name:r.name, desc:r.desc||'',
         docInfo: r.docInfo || {},
-        pages: r.pages.map(p=>({ id:p.id, title:p.title }))
+        pages: r.pages.map(p=>({ id:p.id, title:p.title, ...(p.parentId ? {parentId:p.parentId} : {}) }))
       }));
       await setDoc(META_DOC, {
         history:        S.history        || [],
@@ -169,7 +169,7 @@
       const roomsMeta = S.rooms.map(r=>({
         id:r.id, name:r.name, desc:r.desc||'',
         docInfo: r.docInfo || {},
-        pages: r.pages.map(p=>({ id:p.id, title:p.title }))
+        pages: r.pages.map(p=>({ id:p.id, title:p.title, ...(p.parentId ? {parentId:p.parentId} : {}) }))
       }));
       await setDoc(META_DOC, {
         history:        S.history        || [],
@@ -458,9 +458,9 @@ textarea{resize:vertical}
 .doc-hdr p{font-size:12px;opacity:.8}
 .doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:auto}
 .a4-page-wrap{max-width:100%;overflow-x:auto;}
-.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;font-size:10.5pt;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
+.a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
-.a4-page p{margin:0 0 9px;line-height:1.75;font-size:10.5pt;}
+.a4-page p{margin:0 0 9px;line-height:1.75;}
 /* 제목 계층 */
 .a4-page h1{font-weight:700;color:#00583F;margin:0 0 14px;line-height:1.4;}
 .a4-page h2{font-weight:700;color:#00583F;margin:20px 0 9px;padding-bottom:5px;border-bottom:2px solid #9ABFB0;line-height:1.4;}
@@ -866,11 +866,10 @@ canvas{display:block;cursor:crosshair;touch-action:none}
     padding:12px 14px!important;
     margin:0 0 16px!important;
     box-shadow:0 2px 8px rgba(0,0,0,.10)!important;
-    font-size:10pt!important;
     line-height:1.75!important;
     border-radius:6px;
   }
-  .a4-page p{ font-size:10pt!important; line-height:1.75!important; margin-bottom:8px!important; }
+  .a4-page p{ line-height:1.75!important; margin-bottom:8px!important; }
   .a4-page h1{ margin-bottom:10px!important; }
   .a4-page h2{ margin:14px 0 7px!important; }
   .a4-page h3{ margin:12px 0 5px!important; }
@@ -1318,74 +1317,96 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
             <div class="fg"><label>내용 직접 입력 (워드 스타일 편집기)</label>
               <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden">
                 <div style="background:var(--navy3);border-bottom:1px solid var(--border2)">
-                  <!-- 1행 -->
-                  <div style="padding:5px 10px;display:flex;gap:3px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border2)">
-                    <select onchange="editorCmd('new-content-div','fontSize',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
+                  <!-- 1행: 서식 전체 -->
+                  <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border2)">
+                    <select onchange="editorSetFontSize('new-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px">
                       <option value="">크기</option>
-                      <option value="1">8pt</option><option value="2">10pt</option><option value="3">12pt</option>
-                      <option value="4">14pt</option><option value="5">18pt</option><option value="6">24pt</option>
+                      <option value="8pt">8pt</option><option value="9pt">9pt</option><option value="10pt">10pt</option>
+                      <option value="10.5pt">10.5</option><option value="11pt">11pt</option><option value="12pt">12pt</option>
+                      <option value="14pt">14pt</option><option value="16pt">16pt</option><option value="18pt">18pt</option>
+                      <option value="24pt">24pt</option>
                     </select>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','bold')"><b>B</b></button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','italic')"><i>I</i></button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','underline')"><u>U</u></button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','strikeThrough')" style="text-decoration:line-through">S</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyLeft')">◀</button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyCenter')">≡</button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyRight')">▶</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','indent')" title="들여쓰기">→</button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','outdent')" title="내어쓰기">←</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertOrderedList')">① 목록</button>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertUnorderedList')">• 목록</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <select onchange="editorForeColor('new-content-div',this);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','bold')" style="min-width:22px;padding:2px 4px"><b>B</b></button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','italic')" style="min-width:22px;padding:2px 4px"><i>I</i></button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','underline')" style="min-width:22px;padding:2px 4px"><u>U</u></button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','strikeThrough')" style="text-decoration:line-through;min-width:22px;padding:2px 4px">S</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyLeft')" style="padding:2px 4px">◀</button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyCenter')" style="padding:2px 4px">≡</button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','justifyRight')" style="padding:2px 4px">▶</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','indent')" title="들여쓰기" style="padding:2px 4px">→</button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','outdent')" title="내어쓰기" style="padding:2px 4px">←</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertOrderedList')" style="padding:2px 4px">① 목록</button>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','insertUnorderedList')" style="padding:2px 4px">• 목록</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <select onchange="editorForeColor('new-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
                       <option value="">글자색</option>
                       <option value="#000000">⬛ 검정</option><option value="#0f2d5c">🟦 남색</option>
                       <option value="#1a4080">🔵 파랑</option><option value="#8b1a1a">🔴 빨강</option>
                       <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
                       <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
                     </select>
-                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','removeFormat')">✕서식</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs" onclick="editorInsertHR('new-content-div')">― 선</button>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-                    <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-input').click()">🖼️ 이미지</button>
+                    <select onchange="editorBackColor('new-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:72px" title="형광펜">
+                      <option value="">🖊️ 형광펜</option>
+                      <option value="#FFFF00">🟡 노랑</option><option value="#90EE90">🟢 초록</option>
+                      <option value="#ADD8E6">🔵 하늘</option><option value="#FFB6C1">🔴 분홍</option>
+                      <option value="#FFA500">🟠 주황</option><option value="#E0E0E0">⬜ 회색</option>
+                      <option value="transparent">✕ 제거</option>
+                    </select>
+                    <button class="btn btn-xs" onclick="editorCmd('new-content-div','removeFormat')" style="padding:2px 4px">✕서식</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+                    <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-input').click()" title="이미지" style="padding:2px 5px">🖼️</button>
                     <input type="file" id="new-img-input" accept="image/*" style="display:none" onchange="editorInsertImageFile(this,'new-content-div')">
+                    <input type="file" id="new-img-multi-input" accept="image/*" multiple style="display:none" onchange="editorInsertImagesRow(this,'new-content-div')">
+                    <button class="btn btn-xs btn-teal" onclick="document.getElementById('new-img-multi-input').click()" title="나란히" style="padding:2px 5px">🖼️🖼️</button>
                   </div>
-                  <!-- 2행 -->
-                  <div style="padding:5px 10px;display:flex;gap:3px;flex-wrap:wrap;align-items:center">
-                    <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">표:</span>
-                    <button class="btn btn-xs" onclick="editorInsertTable('new-content-div')">⊞ 삽입</button>
-                    <button class="btn btn-xs" onclick="tableAddRow()">➕행</button>
-                    <button class="btn btn-xs" onclick="tableAddCol()">➕열</button>
-                    <button class="btn btn-xs" onclick="tableDelRow()">➖행</button>
-                    <button class="btn btn-xs" onclick="tableDelCol()">➖열</button>
-                    <button class="btn btn-xs" onclick="tableMergeCells()">병합</button>
-                    <button class="btn btn-xs" onclick="tableUnmergeCells()">해제</button>
-                    <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
-                      <option value="">표 색상</option>
-                      <option value="blue">▤ 파랑</option>
-                      <option value="gray">▤ 회색</option>
-                      <option value="green">▤ 초록</option>
-                      <option value="orange">▤ 주황</option>
+                  <!-- 2행: 표·선·상자·강조 -->
+                  <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center">
+                    <span style="font-size:11px;color:#666;margin-right:1px">표:</span>
+                    <button class="btn btn-xs" onclick="editorInsertTable('new-content-div')" style="padding:2px 4px">⊞삽입</button>
+                    <button class="btn btn-xs" onclick="tableAddRow()" style="padding:2px 4px">➕행</button>
+                    <button class="btn btn-xs" onclick="tableAddCol()" style="padding:2px 4px">➕열</button>
+                    <button class="btn btn-xs" onclick="tableDelRow()" style="padding:2px 4px">➖행</button>
+                    <button class="btn btn-xs" onclick="tableDelCol()" style="padding:2px 4px">➖열</button>
+                    <button class="btn btn-xs" onclick="tableMergeCells()" style="padding:2px 4px">병합</button>
+                    <button class="btn btn-xs" onclick="tableUnmergeCells()" style="padding:2px 4px">해제</button>
+                    <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
+                      <option value="">표색상</option>
+                      <option value="blue">▤ 파랑</option><option value="gray">▤ 회색</option>
+                      <option value="green">▤ 초록</option><option value="orange">▤ 주황</option>
                       <option value="purple">▤ 보라</option>
                     </select>
-                    <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-                    <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">강조:</span>
-                    <button class="btn btn-xs" onclick="insertHighlight('red')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828">■ 주의</button>
-                    <button class="btn btn-xs" onclick="insertHighlight('yellow')" style="background:#fffde7;border:1px solid #f9a825;color:#795548">■ 중요</button>
-                    <button class="btn btn-xs" onclick="insertHighlight('green')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F">■ 정보</button>
-                    <button class="btn btn-xs" onclick="insertHighlight('blue')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0">■ 안내</button>
-                    <button class="btn btn-xs" onclick="insertHighlight('gray')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333">■ 참고</button>
-                    <button class="btn btn-xs" onclick="insertSidebarBox('new-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F">▌세로선</button>
-                    <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666">✕</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+                    <select onchange="editorInsertHRStyle('new-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="가로선">
+                      <option value="">가로선</option>
+                      <option value="solid">─ 실선</option><option value="dashed">- - 점선</option>
+                      <option value="double">═ 이중</option><option value="bold">━ 굵은</option>
+                      <option value="green">─ 초록</option>
+                    </select>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+                    <span style="font-size:11px;color:#666;margin-right:1px">상자:</span>
+                    <button class="btn btn-xs" onclick="insertBox('solid','new-content-div')" style="border:2px solid #333;color:#333;padding:2px 4px">□실선</button>
+                    <button class="btn btn-xs" onclick="insertBox('dashed','new-content-div')" style="border:2px dashed #666;color:#555;padding:2px 4px">⬚점선</button>
+                    <button class="btn btn-xs" onclick="insertBox('shadow','new-content-div')" style="border:1px solid #bbb;box-shadow:2px 2px 4px rgba(0,0,0,.2);color:#333;padding:2px 4px">▣그림자</button>
+                    <button class="btn btn-xs" onclick="insertBox('green','new-content-div')" style="border:2px solid #00583F;color:#00583F;background:#f0faf5;padding:2px 4px">□초록</button>
+                    <button class="btn btn-xs" onclick="insertBox('blue','new-content-div')" style="border:2px solid #1565c0;color:#1565c0;background:#e3f2fd;padding:2px 4px">□파랑</button>
+                    <button class="btn btn-xs" onclick="insertBox('red','new-content-div')" style="border:2px solid #c62828;color:#c62828;background:#fff0f0;padding:2px 4px">□빨강</button>
+                    <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+                    <span style="font-size:11px;color:#666;margin-right:1px">강조:</span>
+                    <button class="btn btn-xs" onclick="insertHighlight('red','new-content-div')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828;padding:2px 4px">■주의</button>
+                    <button class="btn btn-xs" onclick="insertHighlight('yellow','new-content-div')" style="background:#fffde7;border:1px solid #f9a825;color:#795548;padding:2px 4px">■중요</button>
+                    <button class="btn btn-xs" onclick="insertHighlight('green','new-content-div')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F;padding:2px 4px">■정보</button>
+                    <button class="btn btn-xs" onclick="insertHighlight('blue','new-content-div')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0;padding:2px 4px">■안내</button>
+                    <button class="btn btn-xs" onclick="insertHighlight('gray','new-content-div')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333;padding:2px 4px">■참고</button>
+                    <button class="btn btn-xs" onclick="insertSidebarBox('new-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F;padding:2px 4px">▌세로선</button>
+                    <button class="btn btn-xs" onclick="removeHighlight('new-content-div')" style="border:1px solid #ccc;color:#666;padding:2px 4px">✕</button>
                   </div>
                 </div>
                 <div id="new-content-div" contenteditable="true"
-                  style="min-height:180px;padding:12px;font-size:11pt;font-family:'Malgun Gothic',sans-serif;line-height:1.6;outline:none;overflow-y:auto;max-height:300px"
+                  style="min-height:180px;padding:12px;font-family:'Malgun Gothic',sans-serif;line-height:1.6;outline:none;overflow-y:auto;max-height:300px"
                   onpaste="editorHandlePaste(event,'new-content-div')"></div>
               </div>
             </div>
@@ -1427,7 +1448,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
                 <span id="file-stats" style="font-size:11px;color:var(--muted)"></span>
               </div>
               <div id="file-content-preview" contenteditable="true"
-                style="min-height:200px;max-height:360px;border:1px solid var(--border);border-radius:6px;padding:14px;font-size:11pt;font-family:'Malgun Gothic',sans-serif;line-height:1.6;overflow-y:auto;background:#fff;"
+                style="min-height:200px;max-height:360px;border:1px solid var(--border);border-radius:6px;padding:14px;font-family:'Malgun Gothic',sans-serif;line-height:1.6;overflow-y:auto;background:#fff;"
                 onpaste="editorHandlePaste(event,'file-content-preview')"></div>
               <div class="alert alert-warn" style="margin-top:8px;font-size:12px">
                 ⚠️ 서명란 표가 포함된 경우, 페이지 추가 후 해당 표 아래에 <strong>✍️ 서명하기</strong> 버튼이 자동으로 생성됩니다.
@@ -1779,119 +1800,94 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
     </div>
     <!-- 툴바 -->
     <div style="background:var(--navy3);border-bottom:1px solid var(--border2);flex-shrink:0">
-      <!-- 1행: 텍스트 서식 + 목록 + 글자색 + 이미지 + 검색 -->
-      <div style="padding:5px 10px;display:flex;gap:3px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border2)">
-        <!-- 글자 크기 -->
-        <select onchange="editorSetFontSize('edit-content-div',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
+      <!-- 1행: 서식 전체 -->
+      <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border2)">
+        <select onchange="editorSetFontSize('edit-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:60px">
           <option value="">크기</option>
           <option value="8pt">8pt</option><option value="9pt">9pt</option><option value="10pt">10pt</option>
-          <option value="10.5pt">10.5pt</option><option value="11pt">11pt</option><option value="12pt">12pt</option>
+          <option value="10.5pt">10.5</option><option value="11pt">11pt</option><option value="12pt">12pt</option>
           <option value="14pt">14pt</option><option value="16pt">16pt</option><option value="18pt">18pt</option>
           <option value="24pt">24pt</option>
         </select>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 기본 서식 -->
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','bold')" title="굵게"><b>B</b></button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','italic')" title="기울임"><i>I</i></button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','underline')" title="밑줄"><u>U</u></button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','strikeThrough')" title="취소선" style="text-decoration:line-through">S</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 정렬 -->
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyLeft')" title="왼쪽 정렬">◀</button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyCenter')" title="가운데 정렬">≡</button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyRight')" title="오른쪽 정렬">▶</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 들여쓰기 -->
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','indent')" title="들여쓰기">→</button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','outdent')" title="내어쓰기">←</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 목록 -->
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertOrderedList')" title="번호 목록">① 목록</button>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertUnorderedList')" title="점 목록">• 목록</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 글자색 -->
-        <select onchange="editorForeColor('edit-content-div',this);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','bold')" title="굵게" style="min-width:22px;padding:2px 4px"><b>B</b></button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','italic')" title="기울임" style="min-width:22px;padding:2px 4px"><i>I</i></button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','underline')" title="밑줄" style="min-width:22px;padding:2px 4px"><u>U</u></button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','strikeThrough')" title="취소선" style="text-decoration:line-through;min-width:22px;padding:2px 4px">S</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyLeft')" title="왼쪽" style="padding:2px 4px">◀</button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyCenter')" title="가운데" style="padding:2px 4px">≡</button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','justifyRight')" title="오른쪽" style="padding:2px 4px">▶</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','indent')" title="들여쓰기" style="padding:2px 4px">→</button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','outdent')" title="내어쓰기" style="padding:2px 4px">←</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertOrderedList')" title="번호목록" style="padding:2px 4px">① 목록</button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','insertUnorderedList')" title="점목록" style="padding:2px 4px">• 목록</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <select onchange="editorForeColor('edit-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
           <option value="">글자색</option>
           <option value="#000000">⬛ 검정</option><option value="#0f2d5c">🟦 남색</option>
           <option value="#1a4080">🔵 파랑</option><option value="#8b1a1a">🔴 빨강</option>
           <option value="#1b5e20">🟢 초록</option><option value="#8a6800">🟡 금색</option>
           <option value="#555555">⬜ 회색</option><option value="#e67e22">🟠 주황</option>
         </select>
-        <!-- 형광펜(글자 배경색) -->
-        <select onchange="editorBackColor('edit-content-div',this);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px" title="형광펜">
+        <select onchange="editorBackColor('edit-content-div',this);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:72px" title="형광펜">
           <option value="">🖊️ 형광펜</option>
-          <option value="#FFFF00">🟡 노랑</option>
-          <option value="#90EE90">🟢 초록</option>
-          <option value="#ADD8E6">🔵 하늘</option>
-          <option value="#FFB6C1">🔴 분홍</option>
-          <option value="#FFA500">🟠 주황</option>
-          <option value="#E0E0E0">⬜ 회색</option>
+          <option value="#FFFF00">🟡 노랑</option><option value="#90EE90">🟢 초록</option>
+          <option value="#ADD8E6">🔵 하늘</option><option value="#FFB6C1">🔴 분홍</option>
+          <option value="#FFA500">🟠 주황</option><option value="#E0E0E0">⬜ 회색</option>
           <option value="transparent">✕ 제거</option>
         </select>
-        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','removeFormat')" title="서식 제거">✕서식</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 수평선 -->
-        <button class="btn btn-xs" onclick="editorInsertHR('edit-content-div')" title="수평선 삽입">― 선</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 이미지 -->
-        <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-input').click()" title="이미지 삽입">🖼️ 이미지</button>
+        <button class="btn btn-xs" onclick="editorCmd('edit-content-div','removeFormat')" title="서식 제거" style="padding:2px 4px">✕서식</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-input').click()" title="이미지" style="padding:2px 5px">🖼️</button>
         <input type="file" id="edit-img-input" accept="image/*" style="display:none" onchange="editorInsertImageFile(this,'edit-content-div')">
         <input type="file" id="edit-img-multi-input" accept="image/*" multiple style="display:none" onchange="editorInsertImagesRow(this,'edit-content-div')">
-        <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-multi-input').click()" title="이미지 나란히 배치">🖼️🖼️ 나란히</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <!-- 찾기/바꾸기 -->
-        <button class="btn btn-xs" onclick="toggleFindReplace()" title="찾기/바꾸기">🔍 찾기</button>
+        <button class="btn btn-xs btn-teal" onclick="document.getElementById('edit-img-multi-input').click()" title="나란히" style="padding:2px 5px">🖼️🖼️</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 1px"></span>
+        <button class="btn btn-xs" onclick="toggleFindReplace()" title="찾기/바꾸기" style="padding:2px 4px">🔍 찾기</button>
       </div>
-      <!-- 2행: 표 + 강조 박스 -->
-      <div style="padding:5px 10px;display:flex;gap:3px;flex-wrap:wrap;align-items:center">
-        <!-- 표 -->
-        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">표:</span>
-        <button class="btn btn-xs" onclick="editorInsertTable('edit-content-div')" title="표 삽입">⊞ 삽입</button>
-        <button class="btn btn-xs" onclick="tableAddRow()" title="행 추가">➕행</button>
-        <button class="btn btn-xs" onclick="tableAddCol()" title="열 추가">➕열</button>
-        <button class="btn btn-xs" onclick="tableDelRow()" title="행 삭제">➖행</button>
-        <button class="btn btn-xs" onclick="tableDelCol()" title="열 삭제">➖열</button>
-        <button class="btn btn-xs" onclick="tableMergeCells()" title="셀 병합">병합</button>
-        <button class="btn btn-xs" onclick="tableUnmergeCells()" title="병합 해제">해제</button>
-        <!-- 표 색상 드롭다운 -->
-        <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px">
-          <option value="">표 색상</option>
-          <option value="blue">▤ 파랑</option>
-          <option value="gray">▤ 회색</option>
-          <option value="green">▤ 초록</option>
-          <option value="orange">▤ 주황</option>
+      <!-- 2행: 표·선·상자·강조 -->
+      <div style="padding:4px 8px;display:flex;gap:2px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:#666;margin-right:1px">표:</span>
+        <button class="btn btn-xs" onclick="editorInsertTable('edit-content-div')" title="표 삽입" style="padding:2px 4px">⊞삽입</button>
+        <button class="btn btn-xs" onclick="tableAddRow()" title="행 추가" style="padding:2px 4px">➕행</button>
+        <button class="btn btn-xs" onclick="tableAddCol()" title="열 추가" style="padding:2px 4px">➕열</button>
+        <button class="btn btn-xs" onclick="tableDelRow()" title="행 삭제" style="padding:2px 4px">➖행</button>
+        <button class="btn btn-xs" onclick="tableDelCol()" title="열 삭제" style="padding:2px 4px">➖열</button>
+        <button class="btn btn-xs" onclick="tableMergeCells()" title="셀 병합" style="padding:2px 4px">병합</button>
+        <button class="btn btn-xs" onclick="tableUnmergeCells()" title="병합 해제" style="padding:2px 4px">해제</button>
+        <select onchange="applyTableColorPreset(this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:68px">
+          <option value="">표색상</option>
+          <option value="blue">▤ 파랑</option><option value="gray">▤ 회색</option>
+          <option value="green">▤ 초록</option><option value="orange">▤ 주황</option>
           <option value="purple">▤ 보라</option>
         </select>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-        <!-- 가로선 -->
-        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">선:</span>
-        <select onchange="editorInsertHRStyle('edit-content-div',this.value);this.value=''" style="padding:2px 4px;border-radius:4px;border:1px solid var(--border);font-size:12px;height:26px" title="가로선 삽입">
+        <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+        <select onchange="editorInsertHRStyle('edit-content-div',this.value);this.value=''" style="padding:1px 3px;border-radius:4px;border:1px solid var(--border);font-size:11px;height:24px;max-width:64px" title="가로선">
           <option value="">가로선</option>
-          <option value="solid">─ 실선</option>
-          <option value="dashed">- - 점선</option>
-          <option value="double">═ 이중선</option>
-          <option value="bold">━ 굵은선</option>
-          <option value="green">─ 초록선</option>
+          <option value="solid">─ 실선</option><option value="dashed">- - 점선</option>
+          <option value="double">═ 이중</option><option value="bold">━ 굵은</option>
+          <option value="green">─ 초록</option>
         </select>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-        <!-- 상자 -->
-        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">상자:</span>
-        <button class="btn btn-xs" onclick="insertBox('solid')" style="border:2px solid #333;color:#333" title="실선 상자">□ 실선</button>
-        <button class="btn btn-xs" onclick="insertBox('dashed')" style="border:2px dashed #666;color:#555" title="점선 상자">⬚ 점선</button>
-        <button class="btn btn-xs" onclick="insertBox('shadow')" style="border:1px solid #bbb;box-shadow:2px 2px 5px rgba(0,0,0,.2);color:#333" title="그림자 상자">▣ 그림자</button>
-        <button class="btn btn-xs" onclick="insertBox('green')" style="border:2px solid #00583F;color:#00583F;background:#f0faf5" title="초록 상자">□ 초록</button>
-        <button class="btn btn-xs" onclick="insertBox('blue')" style="border:2px solid #1565c0;color:#1565c0;background:#e3f2fd" title="파랑 상자">□ 파랑</button>
-        <button class="btn btn-xs" onclick="insertBox('red')" style="border:2px solid #c62828;color:#c62828;background:#fff0f0" title="빨강 상자">□ 빨강</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-        <!-- 강조 박스 -->
-        <span style="font-size:11px;color:#666;align-self:center;margin-right:2px">강조:</span>
-        <button class="btn btn-xs" onclick="insertHighlight('red')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828" title="주의/경고">■ 주의</button>
-        <button class="btn btn-xs" onclick="insertHighlight('yellow')" style="background:#fffde7;border:1px solid #f9a825;color:#795548" title="중요 안내">■ 중요</button>
-        <button class="btn btn-xs" onclick="insertHighlight('green')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F" title="정보">■ 정보</button>
-        <button class="btn btn-xs" onclick="insertHighlight('blue')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0" title="안내">■ 안내</button>
-        <button class="btn btn-xs" onclick="insertHighlight('gray')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333" title="참고">■ 참고</button>
-        <button class="btn btn-xs" onclick="insertSidebarBox('edit-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F" title="세로선 강조">▌세로선</button>
-        <button class="btn btn-xs" onclick="removeHighlight()" style="border:1px solid #ccc;color:#666" title="강조 제거">✕</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+        <span style="font-size:11px;color:#666;margin-right:1px">상자:</span>
+        <button class="btn btn-xs" onclick="insertBox('solid','edit-content-div')" style="border:2px solid #333;color:#333;padding:2px 4px" title="실선">□실선</button>
+        <button class="btn btn-xs" onclick="insertBox('dashed','edit-content-div')" style="border:2px dashed #666;color:#555;padding:2px 4px" title="점선">⬚점선</button>
+        <button class="btn btn-xs" onclick="insertBox('shadow','edit-content-div')" style="border:1px solid #bbb;box-shadow:2px 2px 4px rgba(0,0,0,.2);color:#333;padding:2px 4px" title="그림자">▣그림자</button>
+        <button class="btn btn-xs" onclick="insertBox('green','edit-content-div')" style="border:2px solid #00583F;color:#00583F;background:#f0faf5;padding:2px 4px">□초록</button>
+        <button class="btn btn-xs" onclick="insertBox('blue','edit-content-div')" style="border:2px solid #1565c0;color:#1565c0;background:#e3f2fd;padding:2px 4px">□파랑</button>
+        <button class="btn btn-xs" onclick="insertBox('red','edit-content-div')" style="border:2px solid #c62828;color:#c62828;background:#fff0f0;padding:2px 4px">□빨강</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+        <span style="font-size:11px;color:#666;margin-right:1px">강조:</span>
+        <button class="btn btn-xs" onclick="insertHighlight('red','edit-content-div')" style="background:#fff0f0;border:1px solid #e53935;color:#c62828;padding:2px 4px" title="주의">■주의</button>
+        <button class="btn btn-xs" onclick="insertHighlight('yellow','edit-content-div')" style="background:#fffde7;border:1px solid #f9a825;color:#795548;padding:2px 4px" title="중요">■중요</button>
+        <button class="btn btn-xs" onclick="insertHighlight('green','edit-content-div')" style="background:#f0faf6;border:1px solid #00583F;color:#00583F;padding:2px 4px" title="정보">■정보</button>
+        <button class="btn btn-xs" onclick="insertHighlight('blue','edit-content-div')" style="background:#e3f2fd;border:1px solid #1565c0;color:#1565c0;padding:2px 4px" title="안내">■안내</button>
+        <button class="btn btn-xs" onclick="insertHighlight('gray','edit-content-div')" style="background:#f5f5f5;border:1px solid #9e9e9e;color:#333;padding:2px 4px" title="참고">■참고</button>
+        <button class="btn btn-xs" onclick="insertSidebarBox('edit-content-div')" style="background:#f0faf5;border:1px solid #00583F;color:#00583F;padding:2px 4px">▌세로선</button>
+        <button class="btn btn-xs" onclick="removeHighlight('edit-content-div')" style="border:1px solid #ccc;color:#666;padding:2px 4px">✕</button>
       </div>
     </div>
     <!-- 찾기/바꾸기 바 -->
@@ -1904,7 +1900,7 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
     </div>
     <!-- 편집 영역 -->
     <div id="edit-content-div" contenteditable="true"
-      style="flex:1;min-height:0;padding:20px 24px;font-size:11pt;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.6;outline:none;overflow-y:auto;background:#fff;"
+      style="flex:1;min-height:0;padding:20px 24px;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.6;outline:none;overflow-y:scroll;background:#fff;"
       onpaste="editorHandlePaste(event,'edit-content-div')"></div>
     <!-- 하단 저장 바 -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--gray);border-top:1px solid var(--border);flex-shrink:0;border-radius:0 0 var(--radius2) var(--radius2)">
@@ -2278,9 +2274,10 @@ function updateUIForRole(){
 // ═══════════════════════════════════════════════════════
 // 강조 블록 삽입/제거
 // ═══════════════════════════════════════════════════════
-function insertHighlight(type){
-  const div = document.getElementById('edit-content-div');
+function insertHighlight(type, divId){
+  const div = document.getElementById(divId || 'edit-content-div');
   if(!div) return;
+  div.focus();
   const sel = window.getSelection();
   let selectedText = '';
   if(sel && !sel.isCollapsed) selectedText = sel.toString();
@@ -2310,10 +2307,10 @@ function insertHighlight(type){
   toast(labels[type] + ' 블록 삽입됨', 'success');
 }
 
-function removeHighlight(){
+function removeHighlight(divId){
   const sel = window.getSelection();
   if(!sel || !sel.anchorNode) return;
-  const editor = document.getElementById('edit-content-div');
+  const editor = document.getElementById(divId || 'edit-content-div');
   let node = sel.anchorNode;
   // 텍스트노드면 부모로
   while(node && node.nodeType !== 1) node = node.parentNode;
@@ -3674,11 +3671,11 @@ function saveEdit(){
 // 표 색상 프리셋 드롭다운용
 function applyTableColorPreset(val){
   const presets = {
-    blue:   ['#1a3a5c','#dbe8f8','#b0cce8'],
-    gray:   ['#37474f','#eceff1','#cfd8dc'],
-    green:  ['#1b5e20','#e8f5e9','#c8e6c9'],
-    orange: ['#e65100','#fff3e0','#ffe0b2'],
-    purple: ['#6a1b9a','#f3e5f5','#e1bee7'],
+    green:  ['rgba(0,88,63,0.82)',   'rgba(0,88,63,0.08)',    '#fff'],
+    blue:   ['rgba(26,58,92,0.82)',  'rgba(26,58,92,0.08)',   '#fff'],
+    gray:   ['rgba(55,71,79,0.82)',  'rgba(55,71,79,0.08)',   '#fff'],
+    orange: ['rgba(230,81,0,0.82)',  'rgba(230,81,0,0.08)',   '#fff'],
+    purple: ['rgba(106,27,154,0.82)','rgba(106,27,154,0.08)', '#fff'],
   };
   if(!val || !presets[val]) return;
   applyTableColor(...presets[val]);
@@ -3760,8 +3757,8 @@ function editorInsertHRStyle(divId, style){
   const css = styles[style] || styles.solid;
   document.execCommand('insertHTML', false, `<hr style="${css}"><p><br></p>`);
 }
-function insertBox(type){
-  const div = document.getElementById('edit-content-div'); if(!div) return;
+function insertBox(type, divId){
+  const div = document.getElementById(divId || 'edit-content-div'); if(!div) return;
   div.focus();
   const styles = {
     solid:  'border:2px solid #333;border-radius:4px;padding:10px 14px;margin:8px 0;background:#fff;',
@@ -3787,28 +3784,27 @@ function doInsertTable(){
   const cols = parseInt(document.getElementById('tbl-cols').value)||3;
   if(rows<1||cols<1){ toast('행·열 수는 1 이상이어야 합니다.','warn'); return; }
 
-  // 이화그린 교대 색상
-  const ODD_BG  = '#ffffff';          // 홀수 행 (흰색)
-  const EVEN_BG = '#f0faf5';          // 짝수 행 (연한 민트)
-  const HDR_BG  = '#00583F';          // 헤더 (진한 이화그린)
-  const HDR_CLR = '#ffffff';          // 헤더 글씨 (흰색)
-  const BORDER  = '1px solid #9ABFB0';
+  // 이화그린 교차색 (라운드+흰선+투명헤더)
+  const HDR_BG  = 'rgba(0,88,63,0.82)';
+  const ODD_BG  = '#ffffff';
+  const EVEN_BG = 'rgba(0,88,63,0.08)';
+  const BORDER  = '1px solid #ffffff';
 
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0;">`;
+  let html = `<div style="border-radius:10px;overflow:hidden;display:block;margin:8px 0"><table style="width:100%;border-collapse:collapse;font-size:10pt;">`;
   for(let r=0; r<rows; r++){
     html += '<tr>';
     const isHeader = r === 0;
     const bg = isHeader ? HDR_BG : (r % 2 === 1 ? ODD_BG : EVEN_BG);
-    const color = isHeader ? HDR_CLR : '#1a1a1a';
+    const color = isHeader ? '#ffffff' : '#1a1a1a';
     const fw = isHeader ? '700' : '400';
     const tag = isHeader ? 'th' : 'td';
     for(let c=0; c<cols; c++){
       const text = isHeader ? `헤더${c+1}` : '내용';
-      html += `<${tag} style="background:${bg};color:${color};font-weight:${fw};padding:8px 10px;border:${BORDER};vertical-align:top;line-height:1.6;">${text}</${tag}>`;
+      html += `<${tag} style="background:${bg};color:${color};font-weight:${fw};padding:8px 10px;border:${BORDER};vertical-align:top;line-height:1.6;text-align:left;">${text}</${tag}>`;
     }
     html += '</tr>';
   }
-  html += '</table>';
+  html += '</table></div>';
 
   closeModal('insert-table-modal');
   // divId 순서대로 fallback
@@ -5513,10 +5509,40 @@ function applyTableColor(headerBg, rowBg, borderColor){
   if(!node || node.nodeName !== 'TABLE'){
     toast('커서를 표 안에 두고 실행하세요.', 'warn'); return;
   }
+  // 라운드 처리: 부모 래퍼에 적용
+  const wrapper = node.parentNode;
+  if(wrapper && wrapper !== document.body){
+    wrapper.style.borderRadius = '10px';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.display = 'block';
+  }
+  node.style.border = 'none';
   const ths = node.querySelectorAll('th');
-  const tds = node.querySelectorAll('td');
-  ths.forEach(th=>{ th.style.background=headerBg; th.style.color='#fff'; th.style.border='1px solid '+borderColor; });
-  tds.forEach(td=>{ td.style.background=rowBg; td.style.border='1px solid '+borderColor; });
+  ths.forEach(th=>{
+    th.style.background = headerBg;
+    th.style.color = '#fff';
+    th.style.border = '1px solid #fff';
+    th.style.fontWeight = '700';
+  });
+  // tbody rows 교차색
+  node.querySelectorAll('tbody tr').forEach((tr, i) => {
+    const bg = i % 2 === 0 ? '#ffffff' : rowBg;
+    tr.querySelectorAll('td').forEach(td => {
+      td.style.background = bg;
+      td.style.border = '1px solid #fff';
+    });
+  });
+  // tbody 없이 tr만 있는 경우 (첫 번째 행 = 헤더)
+  const plainTrs = node.querySelectorAll('tr');
+  if(!node.querySelector('tbody') && plainTrs.length > 1){
+    Array.from(plainTrs).slice(1).forEach((tr, i) => {
+      const bg = i % 2 === 0 ? '#ffffff' : rowBg;
+      tr.querySelectorAll('td').forEach(td => {
+        td.style.background = bg;
+        td.style.border = '1px solid #fff';
+      });
+    });
+  }
   toast('표 색상이 적용되었습니다.','success');
 }
 
