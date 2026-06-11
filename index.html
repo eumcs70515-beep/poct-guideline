@@ -3663,24 +3663,34 @@ function handleFileSelect(){
 
   const reader = new FileReader();
   reader.onload = function(e){
-    // mammoth 옵션: 이미지를 Storage에 업로드 후 URL 삽입
+    // 업로드 실패 → base64로 대체된 이미지 수
+    let docxImgFailCount = 0;
+    // 이미지 업로드를 한 번에 하나씩 순차 처리 (동시 업로드로 인한 실패 방지)
+    let uploadChain = Promise.resolve();
+    // 업로드 실패 시 최대 2회 재시도 후 base64로 대체
+    async function uploadDocxImage(dataUrl, filename){
+      for(let attempt = 0; attempt < 3; attempt++){
+        const url = await window.fbUploadImage(dataUrl, filename);
+        if(url) return url;
+        if(attempt < 2) await new Promise(r=>setTimeout(r, 500));
+      }
+      return null;
+    }
+
+    // mammoth 옵션: 이미지를 Cloudinary에 순차 업로드 후 URL 삽입 (실패 시 base64로 대체)
     const options = {
       arrayBuffer: e.target.result,
-      convertImage: mammoth.images.imgElement(async function(image){
-        try{
+      convertImage: mammoth.images.imgElement(function(image){
+        uploadChain = uploadChain.then(async ()=>{
           const b64 = await image.read('base64');
           const dataUrl = 'data:' + image.contentType + ';base64,' + b64;
-          // Storage 업로드
-          if(window.fbUploadImage){
-            const url = await window.fbUploadImage(dataUrl, 'docx_img_'+Date.now()+'.jpg');
-            if(url) return { src: url };
-          }
-          // fallback: base64
+          const filename = 'docx_img_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+          const url = await uploadDocxImage(dataUrl, filename);
+          if(url) return { src: url };
+          docxImgFailCount++;
           return { src: dataUrl };
-        } catch(err){
-          const b64 = await image.read('base64');
-          return { src: 'data:' + image.contentType + ';base64,' + b64 };
-        }
+        });
+        return uploadChain;
       }),
       styleMap: [
         "p[style-name='heading 1'] => h2:fresh",
@@ -3710,6 +3720,9 @@ function handleFileSelect(){
         loadingEl.style.display = 'none';
         previewEl.style.display = 'block';
 
+        if(docxImgFailCount > 0){
+          toast(`⚠️ 이미지 ${docxImgFailCount}개는 업로드에 실패해 용량이 큰 형태로 임시 저장되었습니다. 가능하면 해당 이미지를 다시 첨부해주세요.`, 'warn');
+        }
         if(result.messages.filter(m=>m.type==='warning').length){
           toast('일부 서식이 변환되지 않았을 수 있습니다.','warn');
         }
@@ -4001,7 +4014,7 @@ function doInsertTable(){
     const bg = r % 2 === 1 ? ODD_BG : EVEN_BG;
     tbHtml += '<tr>';
     for(let c=0; c<cols; c++){
-      tbHtml += `<td style="background:${bg};color:#1a1a1a;padding:8px 10px;border:${BORDER};vertical-align:top;line-height:1.6;text-align:left;">내용</td>`;
+      tbHtml += `<td style="background:${bg};color:#1a1a1a;padding:8px 10px;border:${BORDER};vertical-align:top;line-height:1.6;text-align:left;">&nbsp;</td>`;
     }
     tbHtml += '</tr>';
   }
@@ -4103,6 +4116,30 @@ function editorHandlePaste(e, divId){
       reader.readAsDataURL(item.getAsFile());
       return;
     }
+  }
+
+  // 표 등 서식 붙여넣기에 base64 이미지가 포함된 경우
+  // → 그대로 삽입하지 않고 Cloudinary 업로드 후 URL로 교체해서 삽입
+  const html = e.clipboardData.getData && e.clipboardData.getData('text/html');
+  if(html && /<img\b[^>]*\ssrc=["']data:image\/[^"']+;base64,/i.test(html)){
+    e.preventDefault();
+    pasteHtmlWithImages(html, divId);
+  }
+}
+// 클립보드 HTML 안의 base64 이미지를 Cloudinary에 업로드 후 URL로 교체하여 삽입
+async function pasteHtmlWithImages(html, divId){
+  const imgRe = /<img\b[^>]*\ssrc=(["'])(data:image\/[^"']+;base64,[A-Za-z0-9+/=]+)\1[^>]*>/gi;
+  const matches = [...html.matchAll(imgRe)];
+  let result = html;
+  for(const m of matches){
+    const dataUrl = m[2];
+    const url = await compressAndUploadImage(dataUrl, divId);
+    result = url ? result.split(dataUrl).join(url) : result.split(m[0]).join('');
+  }
+  const div = document.getElementById(divId);
+  if(div){
+    div.focus();
+    document.execCommand('insertHTML', false, result);
   }
 }
 // ── 이미지 압축 후 Cloudinary 업로드 → URL 반환 ──────────
