@@ -359,9 +359,10 @@
           // renderViewerPages의 setTimeout(50ms) 완료를 기다린 후 initSignSheet 호출
           setTimeout(()=>{
             if(typeof initSignSheet === 'function'){
-              // 현재 렌더링된 모든 서명 시트에 반영 (initSignSheet 내부에서 DOM 존재 여부 체크)
-              document.querySelectorAll('.new-sign-sheet[data-page-id]').forEach(el=>{
-                initSignSheet(el.dataset.pageId);
+              // 현재 렌더링된 모든 서명 시트에 반영
+              // (.new-sign-sheet 래퍼는 페이지 분할 시 사라지므로 bot-table id로 탐색)
+              document.querySelectorAll('table[id^="bot-table-"]').forEach(el=>{
+                initSignSheet(el.id.replace('bot-table-',''));
               });
             }
           }, 300);
@@ -476,7 +477,7 @@ textarea{resize:vertical}
 .a4-page ul,.a4-page ol{margin:6px 0 12px 24px;padding:0;}
 .a4-page li{margin-bottom:5px;line-height:1.75;}
 /* 표 */
-.a4-page table{width:100%;border-collapse:collapse;font-size:10pt;margin:10px 0;line-height:1.65;}
+.a4-page table{width:100%!important;max-width:100%!important;border-collapse:collapse;font-size:10pt;margin:10px 0;line-height:1.65;}
 .a4-page table th{background:#E6F4EF;color:#1a3a2a;font-weight:700;padding:8px 10px;border:1px solid #9ABFB0;text-align:left;line-height:1.55;}
 .a4-page table td{padding:7px 10px;border:1px solid #B8D4C4;vertical-align:top;line-height:1.65;}
 .a4-page table tr:nth-child(even) td{background:#f5faf7;}
@@ -487,6 +488,8 @@ textarea{resize:vertical}
 .a4-page .box.warn{background:#fdf0f0;border-color:#e8a0a0;}
 /* 이미지 */
 .a4-page img,.edit-content-div img,[id^="pagecontent_"] img{max-width:100%;height:auto;cursor:pointer;box-sizing:border-box;}
+/* 외부에서 붙여넣은 표(고정 px width)도 컨테이너 폭에 맞춤 */
+.edit-content-div table,.new-content-div table,.child-page-content table{width:100%!important;max-width:100%!important;border-collapse:collapse;}
 .img-selected{outline:2px solid var(--teal);outline-offset:2px;}
 .img-resize-bar{display:none;align-items:center;gap:8px;flex-wrap:wrap;background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;}
 .img-resize-bar.active{display:flex;}
@@ -3377,12 +3380,9 @@ function renderViewerPages(){
           setTimeout(()=>{
             initTableResize(document.getElementById('a4page_'+docPage.id));
             // ★ 새 서명 시트 초기화 (S.signSheets 로드 여부와 무관하게 호출)
-            if(document.querySelector(`.new-sign-sheet[data-page-id="${docPage.id}"]`)){
+            // 페이지 분할 후 .new-sign-sheet 래퍼는 사라지므로 원본 html로 판별한다.
+            if(docPage.html.includes('new-sign-sheet')){
               initSignSheet(docPage.id);
-              // S.signSheets가 이미 로드된 경우 누적 서명 즉시 반영
-              if(S.signSheets && S.signSheets[docPage.id]){
-                renderBotRows(docPage.id);
-              }
             }
           }, 50);
         }
@@ -4105,11 +4105,33 @@ async function compressAndUploadImage(dataUrl, divId){
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
 
-      // 항상 흰 배경 + JPEG 0.72로 압축 (PNG도 포함)
-      // → Cloudinary 업로드 실패 시 fallback도 JPEG로 용량 최소화
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
+      // 투명 영역(알파) 포함 여부 확인
+      // → 투명 배경이 있으면 흰색으로 채우지 않고 PNG로 저장해
+      //   붙여넣은 이미지 둘레에 흰 테두리/배경이 생기는 것을 방지
       ctx.drawImage(img, 0, 0, w, h);
+      let hasAlpha = false;
+      try{
+        const data = ctx.getImageData(0, 0, w, h).data;
+        for(let i = 3; i < data.length; i += 4){
+          if(data[i] < 255){ hasAlpha = true; break; }
+        }
+      }catch(e){}
+
+      let mimeType, quality, ext;
+      if(hasAlpha){
+        // 투명 배경 유지 → PNG
+        mimeType = 'image/png';
+        quality  = undefined;
+        ext      = 'png';
+      } else {
+        // 불투명 이미지 → 흰 배경 + JPEG 0.72로 압축
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        mimeType = 'image/jpeg';
+        quality  = 0.72;
+        ext      = 'jpg';
+      }
 
       // 업로드 중 표시
       const loadingId = 'img-uploading-'+Date.now();
@@ -4118,11 +4140,6 @@ async function compressAndUploadImage(dataUrl, divId){
       loadingEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
       loadingEl.textContent = '☁️ 이미지 업로드 중...';
       document.body.appendChild(loadingEl);
-
-      // JPEG로 통일 (PNG quality 파라미터 무시 문제 해결)
-      const mimeType = 'image/jpeg';
-      const quality  = 0.72;
-      const ext      = 'jpg';
 
       canvas.toBlob(async (blob)=>{
         const el = document.getElementById(loadingId);
@@ -5620,6 +5637,8 @@ function deleteBotRow(pid, idx){
 }
 
 // 서명 시트 초기화 (renderViewerPages 후 호출)
+// ※ 페이지 분할(splitNodesToGroups) 과정에서 .new-sign-sheet 래퍼 div는
+//   사라지고 내부 표들만 남으므로, 래퍼에 의존하지 않고 document 전역에서 찾는다.
 function initSignSheet(pid){
   // 상단 셀 복원 (표1 + 표3 팝업 필드)
   ['writer','partLeader','doctor','chief','startDate','partLeader2','doctor2'].forEach(f=>renderTopSignCell(pid,f));
@@ -5628,11 +5647,8 @@ function initSignSheet(pid){
   const mid   = sheet.midRows  || {};
   const bot3  = sheet.bot3Rows || {};
 
-  const el = document.querySelector(`.new-sign-sheet[data-page-id="${pid}"]`);
-  if(!el) return;
-
-  // 중단 표 셀
-  el.querySelectorAll('td[contenteditable]').forEach(td=>{
+  // 중단/표3 인라인 셀
+  document.querySelectorAll(`td[contenteditable][onblur*="'${pid}'"]`).forEach(td=>{
     const onb = td.getAttribute('onblur')||'';
     const m1 = onb.match(/'mid','(\w+)'/);
     const m2 = onb.match(/'bot3','(\w+)'/);
@@ -5640,7 +5656,7 @@ function initSignSheet(pid){
     if(m2 && bot3[m2[1]] !== undefined) td.innerText = bot3[m2[1]];
   });
 
-  // 하단 행
+  // 하단 행 (서명 내역)
   renderBotRows(pid);
 }
 
