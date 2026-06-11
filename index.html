@@ -3967,8 +3967,12 @@ function insertBox(type, divId){
   document.execCommand('insertHTML', false, `<div data-box="1" style="${css}">내용을 입력하세요.</div><p><br></p>`);
 }
 let _insertTableTargetDiv = null;
+let _insertTableRange = null;
 function editorInsertTable(divId){
   _insertTableTargetDiv = divId;
+  // 모달 오픈 시 포커스가 이동해 선택이 사라지므로, 현재 커서 위치를 미리 저장해둔다
+  const sel = window.getSelection();
+  _insertTableRange = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
   document.getElementById('tbl-rows').value = '3';
   document.getElementById('tbl-cols').value = '3';
   openModal('insert-table-modal');
@@ -4016,6 +4020,13 @@ function doInsertTable(){
   }
   if(!div){ toast('편집창을 찾을 수 없습니다. 편집 모달에서 다시 시도해주세요.','warn'); return; }
   div.focus();
+  // 모달 열기 전 커서 위치를 복원하여 그 자리에 표가 삽입되도록 한다
+  if(_insertTableRange && div.contains(_insertTableRange.commonAncestorContainer)){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(_insertTableRange);
+  }
+  _insertTableRange = null;
   document.execCommand('insertHTML', false, html);
 }
 function editorResizeTable(){
@@ -4033,6 +4044,7 @@ function editorResizeTable(){
 }
 // 이미지 삽입 공통
 function editorInsertImage(divId, dataUrl){
+  if(!dataUrl) return; // 업로드 실패 시 삽입하지 않음
   const div = document.getElementById(divId); if(!div) return;
   div.focus();
   const img = document.createElement('img');
@@ -4154,15 +4166,16 @@ async function compressAndUploadImage(dataUrl, divId){
           if(typeof toast === 'function') toast('☁️ 이미지 업로드 완료!', 'success');
           resolve(url);
         } else {
-          // fallback: JPEG Base64 — PNG 무압축 문제 해결
-          const fallbackUrl = canvas.toDataURL(mimeType, quality);
-          const sizeKB = Math.round(fallbackUrl.length * 0.75 / 1024);
-          if(typeof toast === 'function') toast(`⚠️ 서버 업로드 실패 — 로컬 저장 (${sizeKB}KB). Cloudinary preset을 확인하세요.`, 'warn');
-          resolve(fallbackUrl);
+          // 업로드 실패 시 로컬(Base64) 저장으로 대체하지 않고 삽입 자체를 차단
+          if(typeof toast === 'function') toast('❌ 이미지 업로드 실패 — Cloudinary 저장이 안 되어 삽입할 수 없습니다.', 'error');
+          resolve(null);
         }
       }, mimeType, quality);
     };
-    img.onerror = ()=> resolve(dataUrl);
+    img.onerror = ()=> {
+      if(typeof toast === 'function') toast('❌ 이미지를 불러올 수 없습니다.', 'error');
+      resolve(null);
+    };
     img.src = dataUrl;
   });
 }
@@ -4188,8 +4201,13 @@ function editorInsertImagesRow(input, divId){
   }));
 
   Promise.all(promises).then(urls => {
-    const w = Math.floor(98 / urls.length);
-    const imgs = urls.map(url =>
+    const validUrls = urls.filter(Boolean);
+    if(!validUrls.length){
+      toast('❌ 이미지 업로드에 모두 실패하여 삽입할 수 없습니다.', 'error');
+      return;
+    }
+    const w = Math.floor(98 / validUrls.length);
+    const imgs = validUrls.map(url =>
       `<td style="padding:4px;text-align:center;vertical-align:middle;width:${w}%">
         <img src="${url}" style="max-width:100%;height:auto;border-radius:4px">
       </td>`
@@ -4199,7 +4217,11 @@ function editorInsertImagesRow(input, divId){
     </table>`;
     const div = document.getElementById(divId);
     if(div){ div.focus(); document.execCommand('insertHTML', false, html); }
-    toast(`✅ ${urls.length}장 나란히 삽입 완료`, 'success');
+    if(validUrls.length < urls.length){
+      toast(`⚠️ ${urls.length - validUrls.length}장은 업로드 실패로 제외되고 ${validUrls.length}장만 삽입되었습니다.`, 'warn');
+    } else {
+      toast(`✅ ${validUrls.length}장 나란히 삽입 완료`, 'success');
+    }
   });
   input.value = '';
 }
