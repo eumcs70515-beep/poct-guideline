@@ -2186,8 +2186,8 @@ function saveState(){
   try{
     const data = JSON.stringify(S);
     localStorage.setItem(STORE_KEY, data);
-    // 백업 키에도 저장 (이중 보호)
-    localStorage.setItem(STORE_KEY+'_backup', data);
+    // 예전 버전에서 남은 중복 백업 키 제거 (용량 확보)
+    localStorage.removeItem(STORE_KEY+'_backup');
     localStorage.setItem(STORE_KEY+'_lastSaved', new Date().toISOString());
     // 저장 표시 업데이트
     updateSaveIndicator();
@@ -4118,28 +4118,40 @@ function editorHandlePaste(e, divId){
     }
   }
 
-  // 표 등 서식 붙여넣기에 base64 이미지가 포함된 경우
-  // → 그대로 삽입하지 않고 Cloudinary 업로드 후 URL로 교체해서 삽입
+  // 표 등 서식 붙여넣기에 base64 이미지나 file:// 등 사용 불가능한 이미지가 포함된 경우
+  // → 그대로 삽입하지 않고 base64는 Cloudinary 업로드, 나머지는 제거 후 삽입
   const html = e.clipboardData.getData && e.clipboardData.getData('text/html');
-  if(html && /<img\b[^>]*\ssrc=["']data:image\/[^"']+;base64,/i.test(html)){
+  if(html && /<img\b[^>]*\ssrc=(["'])(?!https?:\/\/)[^"']*\1[^>]*>/i.test(html)){
     e.preventDefault();
     pasteHtmlWithImages(html, divId);
   }
 }
-// 클립보드 HTML 안의 base64 이미지를 Cloudinary에 업로드 후 URL로 교체하여 삽입
+// 클립보드 HTML 안의 이미지를 처리해서 삽입
+// - base64 이미지: Cloudinary 업로드 후 URL로 교체
+// - file:// (Word 임시파일 경로), 빈 src 등 사용 불가능한 이미지: 태그 제거
 async function pasteHtmlWithImages(html, divId){
-  const imgRe = /<img\b[^>]*\ssrc=(["'])(data:image\/[^"']+;base64,[A-Za-z0-9+/=]+)\1[^>]*>/gi;
+  const imgRe = /<img\b[^>]*\ssrc=(["'])([^"']*)\1[^>]*>/gi;
   const matches = [...html.matchAll(imgRe)];
   let result = html;
+  let unusableCount = 0;
   for(const m of matches){
-    const dataUrl = m[2];
-    const url = await compressAndUploadImage(dataUrl, divId);
-    result = url ? result.split(dataUrl).join(url) : result.split(m[0]).join('');
+    const src = m[2];
+    if(/^data:image\/[^;]+;base64,/i.test(src)){
+      const url = await compressAndUploadImage(src, divId);
+      result = url ? result.split(src).join(url) : result.split(m[0]).join('');
+      if(!url) unusableCount++;
+    }else if(!/^https?:\/\//i.test(src)){
+      result = result.split(m[0]).join('');
+      unusableCount++;
+    }
   }
   const div = document.getElementById(divId);
   if(div){
     div.focus();
     document.execCommand('insertHTML', false, result);
+  }
+  if(unusableCount > 0){
+    toast(`⚠️ 이미지 ${unusableCount}개는 가져올 수 없어 제외되었습니다. Word 등에서 복사한 이미지는 지원되지 않습니다. 이미지를 하나씩 복사해 붙여넣거나 파일로 첨부해주세요.`, 'warn');
   }
 }
 // ── 이미지 압축 후 Cloudinary 업로드 → URL 반환 ──────────
@@ -6415,9 +6427,7 @@ function restoreFromBackup(){
   const autoKeys = Object.keys(localStorage)
     .filter(k=>k.startsWith(STORE_KEY+'_autobk_'))
     .sort().reverse(); // 최신순
-  const backupKey = STORE_KEY+'_backup';
   const options = [];
-  if(localStorage.getItem(backupKey)) options.push({label:'직전 저장 백업', key: backupKey});
   autoKeys.slice(0,3).forEach((k,i)=>{
     const ts = parseInt(k.replace(STORE_KEY+'_autobk_',''));
     const dt = isNaN(ts)?'알 수 없음':new Date(ts).toLocaleString('ko-KR');
