@@ -465,6 +465,7 @@ textarea{resize:vertical}
 .doc-hdr p{font-size:12px;opacity:.8}
 .doc-viewer{background:#D4E8DC;padding:20px 28px;min-height:100%;overflow-x:auto}
 .a4-page-wrap{max-width:100%;overflow-x:auto;}
+.hl-found{background:#fff3a3 !important;outline:2px solid #e0b400;outline-offset:2px;border-radius:3px;box-shadow:0 0 0 4px rgba(224,180,0,.25)}
 .a4-page{width:210mm;min-height:297mm;background:#fff;margin:0 auto 28px;padding:16mm 20mm;box-shadow:0 4px 20px rgba(0,0,0,.14);position:relative;line-height:1.75;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR',sans-serif;box-sizing:border-box;overflow:hidden;word-break:keep-all;word-wrap:break-word;color:#1a1a1a;}
 /* 단락 */
 .a4-page p{margin:0 0 9px;line-height:1.75;}
@@ -2436,8 +2437,41 @@ function jumpToLinkedPage(){
   const room = S.rooms.find(r=>r.pages.some(p=>p.id===pageId));
   if(!room) return;
   if(currentRoomId !== room.id) switchRoom(room.id);
-  if(window.innerWidth <= 768){ showMobilePage(pageId); return; }
-  scrollToPage(pageId);
+  if(window.innerWidth <= 768){ showMobilePage(pageId); }
+  else { scrollToPage(pageId); }
+  highlightLinkedText(pageId);
+}
+
+// 주소에 &hl=문구 가 있으면 그 쪽에서 문구가 들어 있는 문단을 노랗게 표시하고 그 위치로 이동
+//   예) https://eumc-poct.pages.dev/#page=pg_1781053467566&hl=원칙적으로 원내에서 시행하는
+function linkedHighlightFromHash(){
+  const m = location.hash.match(/(?:^|[#&])hl=([^&]+)/);
+  if(!m) return null;
+  try{ return decodeURIComponent(m[1]); }catch(e){ return null; }
+}
+
+function highlightLinkedText(pageId){
+  document.querySelectorAll('.hl-found').forEach(el=>el.classList.remove('hl-found'));
+  const hl = linkedHighlightFromHash();
+  if(!hl) return;
+  const norm = t => t.replace(/\s+/g,'').toLowerCase();
+  const needle = norm(hl).slice(0, 60);
+  if(needle.length < 4) return;
+  setTimeout(()=>{
+    const wraps = document.querySelectorAll('.a4-page-wrap[data-page-id="'+pageId+'"]');
+    let best = null;
+    wraps.forEach(w=>{
+      w.querySelectorAll('p,li,td,th,h1,h2,h3,h4,div,span').forEach(el=>{
+        if(!norm(el.textContent).includes(needle)) return;
+        // 문구를 포함하는 가장 안쪽 요소만 고른다 (맨 처음 찾은 곳)
+        if(!best) best = el;
+        else if(best.contains(el)) best = el;
+      });
+    });
+    if(!best) return;
+    best.classList.add('hl-found');
+    best.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 700);
 }
 
 window.addEventListener('hashchange', jumpToLinkedPage);
