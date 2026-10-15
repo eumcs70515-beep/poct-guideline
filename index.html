@@ -2387,6 +2387,8 @@ function submitUserLogin(){
   toast('어서오세요, ' + name + (isAdminLoggedIn ? ' (관리자)' : '') + '님!', 'success');
   // 모바일이면 목차 화면 먼저 표시
   if(window.innerWidth <= 768){ showMobileTOC(); }
+  // 주소에 #page=쪽ID 가 있으면 그 쪽으로 바로 이동
+  jumpToLinkedPage();
   // Firebase 최신 내용 즉시 적용 (setTimeout 없이)
   if(window.fbLoadContent){
     (async ()=>{
@@ -2396,8 +2398,44 @@ function submitUserLogin(){
         try{ localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){}
         renderAll();
         renderDocInfo();
+        jumpToLinkedPage();
       }
     })();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 쪽별 바로 열기 링크 — 주소 뒤에 #page=쪽ID
+//   예) https://eumc-poct.pages.dev/#page=pg_1781053467566
+// ═══════════════════════════════════════════════════════
+function linkedPageIdFromHash(){
+  const m = location.hash.match(/(?:^#|&)page=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function jumpToLinkedPage(){
+  const pageId = linkedPageIdFromHash();
+  if(!pageId || !currentUser) return;
+  const room = S.rooms.find(r=>r.pages.some(p=>p.id===pageId));
+  if(!room) return;
+  if(currentRoomId !== room.id) switchRoom(room.id);
+  if(window.innerWidth <= 768){ showMobilePage(pageId); return; }
+  scrollToPage(pageId);
+}
+
+window.addEventListener('hashchange', jumpToLinkedPage);
+
+function pageLink(pageId){
+  return location.origin + location.pathname + '#page=' + encodeURIComponent(pageId);
+}
+
+function copyPageLink(pageId){
+  const url = pageLink(pageId);
+  const done = ()=>toast('이 쪽의 링크를 복사했습니다', 'success');
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(url).then(done, ()=>prompt('아래 링크를 복사하세요', url));
+  } else {
+    prompt('아래 링크를 복사하세요', url);
   }
 }
 
@@ -3345,6 +3383,7 @@ function renderViewerPages(){
 
         const controlsHtml = `<div class="page-controls">
             <span style="font-size:11px;color:#666;flex:1">${docPage.title}${groups.length>1?' ('+(subIdx+1)+'/'+groups.length+')':''}</span>
+            <button class="btn btn-sm" onclick="copyPageLink('${docPage.id}')" title="이 쪽을 바로 여는 링크 복사">🔗</button>
             <button class="btn btn-sm" onclick="printPage('${docPage.id}')" title="이 페이지만 인쇄">🖨️</button>
             ${isAdminLoggedIn ? `
             <button class="btn btn-sm" onclick="openEditModal('${docPage.id}')">✏️ 편집</button>
